@@ -1,0 +1,39 @@
+# --- Terraform ---
+.terraform/
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Local variable files (keep secrets out of git)
+terraform.tfvars
+terraform.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+
+# Override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# CLI config
+.terraformrc
+terraform.rc
+
+# Keep provider lockfile committed for reproducible builds
+#! .terraform.lock.hcl
+
+# --- OS/editor junk ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*.log
+.history/
+
+# --- Misc ---
+.env
+.env.*
