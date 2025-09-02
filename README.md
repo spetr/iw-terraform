@@ -53,6 +53,13 @@ ec2_instance_count    = 2
 # #   "example.com" = "Z1111111111"
 # #   "example.org" = "Z2222222222"
 # # }
+
+# Optional EFS archive
+# enable_efs_archive = true
+
+# EFS throughput configuration (applies to all EFS in this stack)
+# efs_throughput_mode = "bursting"        # or "provisioned" | "elastic"
+# efs_provisioned_throughput_mibps = 32    # required if mode = provisioned
 ```
 
 Then:

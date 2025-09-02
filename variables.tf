@@ -77,6 +77,37 @@ variable "ec2_key_name" {
 }
 
 ############################################
+# Storage (EFS)
+############################################
+
+variable "enable_efs_archive" {
+  description = "Whether to create an optional third EFS filesystem named 'archive'."
+  type        = bool
+  default     = false
+}
+
+# EFS throughput configuration
+# efs_throughput_mode options:
+# - "bursting"    (default): Baseline scales with filesystem size with short bursts.
+# - "provisioned": Fixed throughput in MiB/s regardless of size; set efs_provisioned_throughput_mibps.
+# - "elastic"     : Auto-scales throughput based on workload; billed per usage.
+variable "efs_throughput_mode" {
+  description = "EFS throughput mode for all EFS filesystems: bursting | provisioned | elastic."
+  type        = string
+  default     = "bursting"
+  validation {
+    condition     = contains(["bursting", "provisioned", "elastic"], var.efs_throughput_mode)
+    error_message = "efs_throughput_mode must be one of: bursting, provisioned, elastic."
+  }
+}
+
+variable "efs_provisioned_throughput_mibps" {
+  description = "Provisioned throughput in MiB/s when efs_throughput_mode = 'provisioned' (e.g., 32)."
+  type        = number
+  default     = null
+}
+
+############################################
 # Databases (RDS MySQL)
 ############################################
 

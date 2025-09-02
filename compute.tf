@@ -66,9 +66,17 @@ resource "aws_instance" "app" {
               REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
               dnf -y install "https://s3.$${REGION}.amazonaws.com/amazon-ssm-$${REGION}/latest/linux_amd64/amazon-ssm-agent.rpm"
               systemctl enable --now amazon-ssm-agent || true
-              mkdir -p /mnt/data /mnt/config
-              echo "${aws_efs_file_system.data.id}:/ /mnt/data efs _netdev,tls 0 0" >> /etc/fstab
-              echo "${aws_efs_file_system.config.id}:/ /mnt/config efs _netdev,tls 0 0" >> /etc/fstab
+              mkdir -p /opt/icewarp/config
+              mkdir -p /opt/icewarp/mail
+              if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
+                mkdir -p /opt/icewarp/archive
+              fi
+              echo "${aws_efs_file_system.config.id}:/ /opt/icewarp/config efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.data.id}:/ /opt/icewarp/mail efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
+              # Mount archive EFS if created
+              if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
+                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /mnt/archive efs _netdev,tls,nconnect=4,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
+              fi
               systemctl daemon-reload
               mount -a -t efs,nfs4
               # Simple web app placeholder

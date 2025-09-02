@@ -109,6 +109,12 @@ sudo mount -t efs -o tls $(terraform output -raw efs_data_id):/ /mnt/data
 sudo mount -t efs -o tls $(terraform output -raw efs_config_id):/ /mnt/config
 ```
 
+Volitelně: EFS archive (pokud povoleno `enable_efs_archive = true`)
+```bash
+sudo mkdir -p /mnt/archive
+sudo mount -t efs -o tls $(terraform output -raw efs_archive_id):/ /mnt/archive
+```
+
 Dostupnost (AZ)
 - EFS má mount target v každé private subnet (v každé AZ). EFS mount helper automaticky volí lokální MT v téže AZ; při výpadku přejde na jiný MT.
 

@@ -42,6 +42,10 @@ output "efs_config_id" {
   value = aws_efs_file_system.config.id
 }
 
+output "efs_archive_id" {
+  value = try(aws_efs_file_system.archive[0].id, null)
+}
+
 output "client_vpn_endpoint_id" {
   value = try(aws_ec2_client_vpn_endpoint.this[0].id, null)
 }
