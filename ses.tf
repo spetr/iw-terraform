@@ -1,38 +1,75 @@
 locals {
-  ses_enabled = var.enable_ses
+  ses_enabled       = var.enable_ses
+  email_identities  = var.ses_email_identities
+  domain_identities = var.ses_domain_identities
 }
 
 resource "aws_ses_email_identity" "this" {
-  count = local.ses_enabled && var.ses_identity_type == "email" && var.ses_email_identity != null ? 1 : 0
-  email = var.ses_email_identity
+  for_each = local.ses_enabled && var.ses_identity_type == "email" ? toset(local.email_identities) : []
+  email    = each.value
 }
 
 resource "aws_ses_domain_identity" "this" {
-  count  = local.ses_enabled && var.ses_identity_type == "domain" && var.ses_domain != null ? 1 : 0
-  domain = var.ses_domain
+  for_each = local.ses_enabled && var.ses_identity_type == "domain" ? toset(local.domain_identities) : []
+  domain   = each.value
 }
 
 resource "aws_ses_domain_dkim" "this" {
-  count  = length(aws_ses_domain_identity.this) > 0 ? 1 : 0
-  domain = aws_ses_domain_identity.this[0].domain
+  for_each = aws_ses_domain_identity.this
+  domain   = each.value.domain
 }
 
 resource "aws_route53_record" "ses_verification" {
-  count   = length(aws_ses_domain_identity.this) > 0 && var.ses_route53_zone_id != null ? 1 : 0
-  zone_id = var.ses_route53_zone_id
-  name    = "${aws_ses_domain_identity.this[0].domain}"
+  for_each = {
+    for d, di in aws_ses_domain_identity.this : d => di if(
+      contains(keys(var.ses_route53_zone_ids), d) || var.ses_route53_zone_id != null
+    )
+  }
+  zone_id = lookup(var.ses_route53_zone_ids, each.key, var.ses_route53_zone_id)
+  name    = each.key
   type    = "TXT"
   ttl     = 600
-  records = [aws_ses_domain_identity.this[0].verification_token]
+  records = [each.value.verification_token]
 }
 
-resource "aws_route53_record" "ses_dkim" {
-  count   = length(aws_ses_domain_dkim.this) > 0 && var.ses_route53_zone_id != null ? 3 : 0
-  zone_id = var.ses_route53_zone_id
-  name    = "${element(aws_ses_domain_dkim.this[0].dkim_tokens, count.index)}._domainkey.${aws_ses_domain_identity.this[0].domain}"
+# Create DKIM records with explicit resources (3 per domain)
+resource "aws_route53_record" "ses_dkim_0" {
+  for_each = {
+    for d, dk in aws_ses_domain_dkim.this : d => dk if(
+      contains(keys(var.ses_route53_zone_ids), d) || var.ses_route53_zone_id != null
+    )
+  }
+  zone_id = lookup(var.ses_route53_zone_ids, each.key, var.ses_route53_zone_id)
+  name    = "${element(each.value.dkim_tokens, 0)}._domainkey.${each.key}"
   type    = "CNAME"
   ttl     = 600
-  records = ["${element(aws_ses_domain_dkim.this[0].dkim_tokens, count.index)}.dkim.amazonses.com"]
+  records = ["${element(each.value.dkim_tokens, 0)}.dkim.amazonses.com"]
+}
+
+resource "aws_route53_record" "ses_dkim_1" {
+  for_each = {
+    for d, dk in aws_ses_domain_dkim.this : d => dk if(
+      contains(keys(var.ses_route53_zone_ids), d) || var.ses_route53_zone_id != null
+    )
+  }
+  zone_id = lookup(var.ses_route53_zone_ids, each.key, var.ses_route53_zone_id)
+  name    = "${element(each.value.dkim_tokens, 1)}._domainkey.${each.key}"
+  type    = "CNAME"
+  ttl     = 600
+  records = ["${element(each.value.dkim_tokens, 1)}.dkim.amazonses.com"]
+}
+
+resource "aws_route53_record" "ses_dkim_2" {
+  for_each = {
+    for d, dk in aws_ses_domain_dkim.this : d => dk if(
+      contains(keys(var.ses_route53_zone_ids), d) || var.ses_route53_zone_id != null
+    )
+  }
+  zone_id = lookup(var.ses_route53_zone_ids, each.key, var.ses_route53_zone_id)
+  name    = "${element(each.value.dkim_tokens, 2)}._domainkey.${each.key}"
+  type    = "CNAME"
+  ttl     = 600
+  records = ["${element(each.value.dkim_tokens, 2)}.dkim.amazonses.com"]
 }
 
 resource "aws_iam_policy" "ses_send_email" {

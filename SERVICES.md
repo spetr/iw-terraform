@@ -67,7 +67,7 @@ aws ses send-email \
 	--message Subject='{Data="Test"}',Body='{Text={Data="Hello"}}'
 ```
 
-Pozn.: EC2 role má při `enable_ses=true` připojenou policy s `ses:SendEmail`/`ses:SendRawEmail`.
+ Pozn.: EC2 role má při `enable_ses=true` připojenou policy s `ses:SendEmail`/`ses:SendRawEmail`.
 
 ---
 

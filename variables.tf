@@ -150,22 +150,30 @@ variable "ses_identity_type" {
   }
 }
 
-variable "ses_email_identity" {
-  description = "Email address to verify for SES (used when ses_identity_type = 'email')."
-  type        = string
-  default     = null
-}
-
-variable "ses_domain" {
-  description = "Domain to verify for SES (used when ses_identity_type = 'domain')."
-  type        = string
-  default     = null
-}
 
 variable "ses_route53_zone_id" {
   description = "Optional Route53 Hosted Zone ID for creating SES DNS records automatically for domain identity."
   type        = string
   default     = null
+}
+
+# New: support multiple identities
+variable "ses_email_identities" {
+  description = "List of email identities to verify for SES."
+  type        = list(string)
+  default     = []
+}
+
+variable "ses_domain_identities" {
+  description = "List of domains to verify for SES."
+  type        = list(string)
+  default     = []
+}
+
+variable "ses_route53_zone_ids" {
+  description = "Optional map of domain => Route53 Hosted Zone ID for creating SES DNS records per domain. If provided, overrides ses_route53_zone_id for matching domains."
+  type        = map(string)
+  default     = {}
 }
 
 ############################################

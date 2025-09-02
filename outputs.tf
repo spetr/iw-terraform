@@ -50,10 +50,14 @@ output "bastion_instance_id" {
   value = try(aws_instance.bastion[0].id, null)
 }
 
-output "ses_identity" {
-  value = coalesce(try(aws_ses_email_identity.this[0].email, null), try(aws_ses_domain_identity.this[0].domain, null))
+output "ses_email_identities" {
+  value = try(keys(aws_ses_email_identity.this), [])
 }
 
-output "ses_dkim_tokens" {
-  value = try(aws_ses_domain_dkim.this[0].dkim_tokens, [])
+output "ses_domain_identities" {
+  value = try(keys(aws_ses_domain_identity.this), [])
+}
+
+output "ses_dkim_tokens_by_domain" {
+  value = { for d, dk in aws_ses_domain_dkim.this : d => dk.dkim_tokens }
 }

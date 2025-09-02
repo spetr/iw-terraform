@@ -41,11 +41,18 @@ db_password           = "ChangeMe123!"
 ec2_instance_count    = 2
 
 # Optional SES configuration
-# enable_ses          = true
-# ses_identity_type   = "email"          # or "domain"
-# ses_email_identity  = "user@example.com"  # when identity_type = email
-# ses_domain          = "example.com"       # when identity_type = domain
-# ses_route53_zone_id = "Z1234567890"       # to auto-create TXT/CNAME records
+# enable_ses            = true
+# ses_identity_type     = "email"                # or "domain"
+# # Emails
+# ses_email_identities  = ["user1@example.com", "user2@example.com"]
+# # Domains
+# ses_domain_identities = ["example.com", "example.org"]
+# # One zone for all domains, or per-domain mapping
+# # ses_route53_zone_id = "Z1234567890"         # apply to all
+# # ses_route53_zone_ids = {                     # overrides per domain
+# #   "example.com" = "Z1111111111"
+# #   "example.org" = "Z2222222222"
+# # }
 ```
 
 Then:
