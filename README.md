@@ -75,6 +75,7 @@ terraform apply
 - Security is permissive for demo. Tighten CIDR ranges and consider SSM-only access (disable SSH).
 - SSH access is disabled by default. To enable direct SSH to EC2, set `enable_ssh_access = true` and adjust `allowed_ssh_cidr`.
 - For production, place EC2 behind Auto Scaling groups and use Target Group health checks.
+- RDS: set db_max_allocated_storage to enable storage autoscaling, choose db_storage_type (gp3/gp2/io1/io2), and optionally tune db_iops/db_storage_throughput.
 - Provide a valid certificate in ACM for the Client VPN endpoint and optionally a SAML provider ARN to use federated auth.
 - Ensure the Client VPN CIDR doesn’t overlap with your VPC or on-prem networks.
 

@@ -135,6 +135,38 @@ variable "db_allocated_storage" {
   default     = 20
 }
 
+variable "db_max_allocated_storage" {
+  description = "RDS max storage in GB for autoscaling. When set (> allocated), enables storage autoscaling up to this limit."
+  type        = number
+  default     = 100
+}
+
+# RDS storage type options:
+# - gp3 (recommended): configurable IOPS and throughput, better price/perf.
+# - gp2: legacy general purpose SSD (fixed IOPS baseline by size).
+# - io1/io2: provisioned IOPS (set db_iops); higher performance and cost.
+variable "db_storage_type" {
+  description = "RDS storage type: gp3 | gp2 | io1 | io2."
+  type        = string
+  default     = "gp3"
+  validation {
+    condition     = contains(["gp3", "gp2", "io1", "io2"], var.db_storage_type)
+    error_message = "db_storage_type must be one of: gp3, gp2, io1, io2."
+  }
+}
+
+variable "db_iops" {
+  description = "Provisioned IOPS. Required when db_storage_type is io1/io2. Optional for gp3."
+  type        = number
+  default     = null
+}
+
+variable "db_storage_throughput" {
+  description = "Storage throughput in MB/s (only for gp3, not necessary but recommended)."
+  type        = number
+  default     = null
+}
+
 ############################################
 # Caching (ElastiCache Redis)
 ############################################

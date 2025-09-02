@@ -14,6 +14,10 @@ resource "aws_db_instance" "mysql" {
   username                = var.db_username
   password                = var.db_password
   allocated_storage       = var.db_allocated_storage
+  max_allocated_storage   = var.db_max_allocated_storage
+  storage_type            = var.db_storage_type
+  iops                    = (var.db_storage_type == "io1" || var.db_storage_type == "io2" || var.db_storage_type == "gp3") && var.db_iops != null ? var.db_iops : null
+  storage_throughput      = var.db_storage_type == "gp3" && var.db_storage_throughput != null ? var.db_storage_throughput : null
   skip_final_snapshot     = true
   deletion_protection     = false
   db_subnet_group_name    = aws_db_subnet_group.this.name
