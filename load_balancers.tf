@@ -1,5 +1,16 @@
 locals {
-  mail_tcp_ports = [25, 465, 587, 143, 993, 110, 995] # smtp, smtps, submission, imap, imaps, pop3, pop3s
+  # Mail-related TCP ports handled by the NLB (SMTP/IMAP/POP3 family)
+  mail_ports = [25, 465, 587, 143, 993, 110, 995] # smtp, smtps, submission, imap, imaps, pop3, pop3s
+
+  # Subset of mail ports that should use TLS termination on the NLB when a certificate is available
+  mail_tls_ports = [465, 993, 995] # smtps, imaps, pop3s
+
+  # Full list of NLB listener ports: mail ports plus optional 443 passthrough when no ALB certificate is configured
+  nlb_ports = var.alb_certificate_arn == null ? concat(local.mail_ports, [443]) : local.mail_ports
+
+  # Partition NLB ports into TCP (no TLS termination) and TLS (terminate at NLB when cert is present)
+  nlb_tcp_ports = [for p in local.nlb_ports : p if !(contains(local.mail_tls_ports, p) && var.alb_certificate_arn != null)]
+  nlb_tls_ports = [for p in local.nlb_ports : p if (contains(local.mail_tls_ports, p) && var.alb_certificate_arn != null)]
 }
 
 # Application Load Balancer for HTTP/HTTPS
@@ -29,14 +40,18 @@ resource "aws_lb_target_group" "alb_tg" {
   }
 }
 
-resource "aws_lb_listener" "http" {
+resource "aws_lb_listener" "http_redirect" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.alb_tg.arn
+    type = "redirect"
+    redirect {
+      protocol   = "HTTPS"
+      port       = "443"
+      status_code = "HTTP_301"
+    }
   }
 }
 
@@ -70,7 +85,7 @@ resource "aws_lb" "nlb" {
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
-  for_each = toset([for p in local.mail_tcp_ports : tostring(p)])
+  for_each = toset([for p in local.nlb_ports : tostring(p)])
   name     = "${var.project}-${var.environment}-nlb-tg-${each.key}"
   port     = tonumber(each.key)
   protocol = "TCP"
@@ -78,11 +93,25 @@ resource "aws_lb_target_group" "nlb_tg" {
   target_type = "instance"
 }
 
-resource "aws_lb_listener" "nlb_listener" {
-  for_each          = toset([for p in local.mail_tcp_ports : tostring(p)])
+resource "aws_lb_listener" "nlb_listener_tcp" {
+  for_each          = toset([for p in local.nlb_tcp_ports : tostring(p)])
   load_balancer_arn = aws_lb.nlb.arn
   port              = tonumber(each.key)
   protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nlb_tg[each.key].arn
+  }
+}
+
+resource "aws_lb_listener" "nlb_listener_tls" {
+  for_each          = toset([for p in local.nlb_tls_ports : tostring(p)])
+  load_balancer_arn = aws_lb.nlb.arn
+  port              = tonumber(each.key)
+  protocol          = "TLS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.alb_certificate_arn
 
   default_action {
     type             = "forward"

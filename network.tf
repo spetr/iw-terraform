@@ -131,6 +131,18 @@ resource "aws_security_group" "ec2_sg" {
     security_groups = [aws_security_group.alb_sg.id]
   }
 
+  # When no ALB certificate is provided, HTTPS is exposed via NLB as TCP/443 passthrough
+  dynamic "ingress" {
+    for_each = var.alb_certificate_arn == null ? [1] : []
+    content {
+      description = "HTTPS passthrough from anywhere (via NLB)"
+      from_port   = 443
+      to_port     = 443
+      protocol    = "tcp"
+      cidr_blocks = ["0.0.0.0/0"]
+    }
+  }
+
   dynamic "ingress" {
     for_each = toset([25, 465, 587, 143, 993, 110, 995])
     content {
