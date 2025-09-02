@@ -43,5 +43,17 @@ output "efs_config_id" {
 }
 
 output "client_vpn_endpoint_id" {
-  value = aws_ec2_client_vpn_endpoint.this.id
+  value = try(aws_ec2_client_vpn_endpoint.this[0].id, null)
+}
+
+output "bastion_instance_id" {
+  value = try(aws_instance.bastion[0].id, null)
+}
+
+output "ses_identity" {
+  value = coalesce(try(aws_ses_email_identity.this[0].email, null), try(aws_ses_domain_identity.this[0].domain, null))
+}
+
+output "ses_dkim_tokens" {
+  value = try(aws_ses_domain_dkim.this[0].dkim_tokens, [])
 }

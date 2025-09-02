@@ -54,6 +54,23 @@ Dostupnost (AZ)
 
 ---
 
+## Amazon SES (volitelné)
+- Regionální služba; není AZ‑specifická (vysoká dostupnost zajišťuje AWS).
+- Lze ověřit e‑mailovou adresu nebo doménu.
+- Při doméně doporučeno nastavit DKIM (CNAME) a SPF (TXT) pro doručitelnost.
+
+Příklad odeslání (AWS CLI)
+```bash
+aws ses send-email \
+	--from "user@example.com" \
+	--destination ToAddresses="target@example.com" \
+	--message Subject='{Data="Test"}',Body='{Text={Data="Hello"}}'
+```
+
+Pozn.: EC2 role má při `enable_ses=true` připojenou policy s `ses:SendEmail`/`ses:SendRawEmail`.
+
+---
+
 ## RDS MySQL (privátní)
 - Endpoint je neveřejný; připojení pouze z VPC (EC2/VPN).
 - Přihlašovací údaje: `db_username` a `db_password` (proměnné Terraformu).
@@ -113,6 +130,31 @@ Dostupnost (AZ)
 aws ssm start-session --target <INSTANCE_ID>
 ```
 - SSH je povolené v SG (port 22) podle `allowed_ssh_cidr`. Pro produkci zvažte SSM‑only a zrušení 22 z Internetu.
+
+### Bastion (SSM‑only)
+- Volitelný bastion (`create_bastion = true`) je EC2 v privátní subnet, bez veřejné IP a bez otevřeného SSH.
+- Přístup výhradně přes SSM Session Manager.
+
+Připojení
+```bash
+# Bastion ID
+terraform output -raw bastion_instance_id
+
+# Otevřít relaci na bastionu
+aws ssm start-session --target $(terraform output -raw bastion_instance_id)
+
+# Port-forward (např. na cílový host v privátní síti přes bastion)
+aws ssm start-session \
+	--target $(terraform output -raw bastion_instance_id) \
+	--document-name AWS-StartPortForwardingSessionToRemoteHost \
+	--parameters host="10.0.10.100",portNumber="3306",localPortNumber="3306"
+```
+
+Požadavky účtu (SSM)
+- EC2 IAM role: `AmazonSSMManagedInstanceCore` (v repo nastaveno).
+- Odchozí přístup z privátní sítě na SSM endpointy (přes NAT nebo VPC endpoints: `com.amazonaws.<region>.ssm`, `ssmmessages`, `ec2messages`).
+- Uživatelé/IAM: oprávnění `ssm:StartSession`, `ssm:DescribeInstanceInformation`, případně `ssm:SendCommand`.
+- (Volitelné) Logování relací do CloudWatch/S3 a KMS šifrování.
 
 ---
 

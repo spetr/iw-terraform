@@ -1,10 +1,21 @@
-data "aws_ami" "al2023" {
+data "aws_ami" "rocky96" {
+  count       = var.ec2_ami_id == null ? 1 : 0
   most_recent = true
-  owners      = ["amazon"]
+  owners      = ["679593333241"] # Rocky Enterprise Software Foundation
 
   filter {
     name   = "name"
-    values = ["al2023-ami-*-x86_64"]
+    values = ["Rocky-9-EC2-Base-9.6*", "Rocky-9-*-2024*", "Rocky-9-EC2-Base-*.x86_64-*9.6*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
   }
 }
 
@@ -38,7 +49,7 @@ locals {
 
 resource "aws_instance" "app" {
   count                  = var.ec2_instance_count
-  ami                    = data.aws_ami.al2023.id
+  ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ami.rocky96[0].id
   instance_type          = var.ec2_instance_type
   subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
@@ -48,8 +59,13 @@ resource "aws_instance" "app" {
   user_data = <<-EOF
               #!/bin/bash
               set -euxo pipefail
-              dnf update -y
-              dnf install -y amazon-efs-utils nfs-utils
+              dnf -y update
+              dnf -y install epel-release
+              dnf -y install amazon-efs-utils nfs-utils
+              # Ensure SSM Agent is installed and running on Rocky
+              REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+              dnf -y install "https://s3.$${REGION}.amazonaws.com/amazon-ssm-$${REGION}/latest/linux_amd64/amazon-ssm-agent.rpm"
+              systemctl enable --now amazon-ssm-agent || true
               mkdir -p /mnt/data /mnt/config
               echo "${aws_efs_file_system.data.id}:/ /mnt/data efs _netdev,tls 0 0" >> /etc/fstab
               echo "${aws_efs_file_system.config.id}:/ /mnt/config efs _netdev,tls 0 0" >> /etc/fstab
@@ -63,5 +79,45 @@ resource "aws_instance" "app" {
 
   tags = {
   Name = "${var.project}-${var.environment}-app-${count.index}"
+  }
+}
+
+# SSM-only Bastion (no public IP, no inbound SSH; access via SSM Session Manager)
+resource "aws_security_group" "bastion_sg" {
+  count       = var.create_bastion ? 1 : 0
+  name        = "${var.project}-${var.environment}-bastion"
+  description = "Bastion SG (SSM-only, no inbound)"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_instance" "bastion" {
+  count                  = var.create_bastion ? 1 : 0
+  ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ami.rocky96[0].id
+  instance_type          = var.bastion_instance_type
+  subnet_id              = local.private_subnet_ids[0]
+  vpc_security_group_ids = [aws_security_group.bastion_sg[0].id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2.name
+  associate_public_ip_address = false
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -euxo pipefail
+              dnf -y update
+              # Ensure SSM Agent is installed and running on Rocky
+              REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/region)
+              dnf -y install "https://s3.$${REGION}.amazonaws.com/amazon-ssm-$${REGION}/latest/linux_amd64/amazon-ssm-agent.rpm"
+              systemctl enable --now amazon-ssm-agent || true
+              # No SSH opening; rely on SSM
+              EOF
+
+  tags = {
+    Name = "${var.project}-${var.environment}-bastion"
   }
 }

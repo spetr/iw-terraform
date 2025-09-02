@@ -1,3 +1,7 @@
+############################################
+# Project & Environment
+############################################
+
 variable "project" {
   description = "Project name used for tagging and naming."
   type        = string
@@ -15,6 +19,10 @@ variable "aws_region" {
   type        = string
   default     = "eu-central-1"
 }
+
+############################################
+# Networking (VPC & Subnets)
+############################################
 
 variable "vpc_cidr" {
   description = "CIDR block for the VPC."
@@ -40,6 +48,10 @@ variable "availability_zones" {
   default     = []
 }
 
+############################################
+# Compute (EC2) & Access
+############################################
+
 variable "ec2_instance_type" {
   description = "EC2 instance type."
   type        = string
@@ -52,17 +64,21 @@ variable "ec2_instance_count" {
   default     = 1
 }
 
+variable "ec2_ami_id" {
+  description = "Optional explicit AMI ID to use for EC2 and bastion. If null, Terraform will try to find Rocky Linux 9.6 automatically."
+  type        = string
+  default     = null
+}
+
 variable "ec2_key_name" {
   description = "Name of an existing EC2 Key Pair to enable SSH access."
   type        = string
   default     = null
 }
 
-variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to SSH to instances (for bastion or SSM optional)."
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
-}
+############################################
+# Databases (RDS MySQL)
+############################################
 
 variable "db_username" {
   description = "Master username for RDS MySQL."
@@ -88,6 +104,10 @@ variable "db_allocated_storage" {
   default     = 20
 }
 
+############################################
+# Caching (ElastiCache Redis)
+############################################
+
 variable "redis_node_type" {
   description = "ElastiCache node type."
   type        = string
@@ -100,10 +120,94 @@ variable "redis_engine_version" {
   default     = "7.0"
 }
 
+############################################
+# Load Balancing / Certificates
+############################################
+
 variable "alb_certificate_arn" {
   description = "ACM certificate ARN for HTTPS on ALB."
   type        = string
   default     = null
+}
+
+############################################
+# Email Amazon SES (optional)
+############################################
+
+variable "enable_ses" {
+  description = "Enable Amazon SES setup (identity and permissions)."
+  type        = bool
+  default     = false
+}
+
+variable "ses_identity_type" {
+  description = "SES identity type to verify: 'email' or 'domain'."
+  type        = string
+  default     = "email"
+  validation {
+    condition     = contains(["email", "domain"], var.ses_identity_type)
+    error_message = "ses_identity_type must be 'email' or 'domain'."
+  }
+}
+
+variable "ses_email_identity" {
+  description = "Email address to verify for SES (used when ses_identity_type = 'email')."
+  type        = string
+  default     = null
+}
+
+variable "ses_domain" {
+  description = "Domain to verify for SES (used when ses_identity_type = 'domain')."
+  type        = string
+  default     = null
+}
+
+variable "ses_route53_zone_id" {
+  description = "Optional Route53 Hosted Zone ID for creating SES DNS records automatically for domain identity."
+  type        = string
+  default     = null
+}
+
+############################################
+# Remote Access - Bastion Host (optional)
+############################################
+
+variable "create_bastion" {
+  description = "Whether to create a small bastion host in a public subnet for troubleshooting."
+  type        = bool
+  default     = false
+}
+
+variable "bastion_instance_type" {
+  description = "Bastion EC2 instance type (SSM-only bastion)."
+  type        = string
+  default     = "t3.micro"
+}
+
+############################################
+# Remote Access - SSH (optional)
+############################################
+
+variable "enable_ssh_access" {
+  description = "Enable direct SSH (port 22) to EC2 instances. When false, SSH ingress is not created."
+  type        = bool
+  default     = false
+}
+
+variable "allowed_ssh_cidr" {
+  description = "CIDR allowed to SSH to instances (for bastion or SSM optional)."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+############################################
+# Remote Access - Client VPN (optional)
+############################################
+
+variable "enable_client_vpn" {
+  description = "Whether to create the AWS Client VPN endpoint and related resources."
+  type        = bool
+  default     = false
 }
 
 variable "client_vpn_cidr" {
@@ -127,11 +231,4 @@ variable "client_vpn_auth_saml_provider_arn" {
   description = "Optional SAML provider ARN for federated auth; if null, will use mutual cert auth only."
   type        = string
   default     = null
-}
-
-
-variable "create_bastion" {
-  description = "Whether to create a small bastion host in a public subnet for troubleshooting."
-  type        = bool
-  default     = false
 }

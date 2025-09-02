@@ -111,13 +111,16 @@ resource "aws_security_group" "ec2_sg" {
   description = "EC2 SG"
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description      = "SSH"
-    from_port        = 22
-    to_port          = 22
-    protocol         = "tcp"
-    cidr_blocks      = var.allowed_ssh_cidr
-    ipv6_cidr_blocks = []
+  dynamic "ingress" {
+    for_each = var.enable_ssh_access ? [1] : []
+    content {
+      description      = "SSH"
+      from_port        = 22
+      to_port          = 22
+      protocol         = "tcp"
+      cidr_blocks      = var.allowed_ssh_cidr
+      ipv6_cidr_blocks = []
+    }
   }
 
   ingress {
@@ -244,6 +247,7 @@ resource "aws_security_group" "efs_sg" {
 }
 
 resource "aws_security_group" "client_vpn_sg" {
+  count       = var.enable_client_vpn ? 1 : 0
   name        = "${var.project}-${var.environment}-client-vpn"
   description = "Client VPN SG"
   vpc_id      = aws_vpc.main.id
