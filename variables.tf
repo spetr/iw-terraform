@@ -246,6 +246,13 @@ variable "waf_web_acl_arn" {
   default     = null
 }
 
+# If true, create a basic AWS WAFv2 Web ACL (REGIONAL) with common managed rule groups and attach to ALB.
+variable "enable_waf_basic" {
+  description = "Create a basic AWS WAFv2 Web ACL (REGIONAL) with AWS managed rule groups and attach it to ALB when waf_web_acl_arn is not provided."
+  type        = bool
+  default     = false
+}
+
 ############################################
 # Email Amazon SES (optional)
 ############################################

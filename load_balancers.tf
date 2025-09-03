@@ -83,6 +83,81 @@ resource "aws_wafv2_web_acl_association" "alb" {
   web_acl_arn  = var.waf_web_acl_arn
 }
 
+# Optionally create a basic WAF and associate with ALB when no external ARN is provided
+resource "aws_wafv2_web_acl" "basic" {
+  count = var.waf_web_acl_arn == null && var.enable_waf_basic ? 1 : 0
+  name        = "${var.project}-${var.environment}-waf-basic"
+  description = "Basic WAF (REGIONAL) with AWS managed rule groups"
+  scope       = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "AWS-AWSManagedRulesCommonRuleSet"
+    priority = 1
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    override_action { none {} }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "common"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWS-AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 2
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    override_action { none {} }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "bad-inputs"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "AWS-AWSManagedRulesSQLiRuleSet"
+    priority = 3
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesSQLiRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    override_action { none {} }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "sqli"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "basic-acl"
+    sampled_requests_enabled   = true
+  }
+}
+
+resource "aws_wafv2_web_acl_association" "alb_basic" {
+  count        = var.waf_web_acl_arn == null && var.enable_waf_basic ? 1 : 0
+  resource_arn = aws_lb.alb.arn
+  web_acl_arn  = aws_wafv2_web_acl.basic[0].arn
+}
+
 # Network Load Balancer for TCP ports (mail protocols)
 resource "aws_lb" "nlb" {
   name               = "${var.project}-${var.environment}-nlb"
