@@ -48,20 +48,24 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  for_each = var.single_nat_gateway ? { "0" = aws_subnet.public["0"].id } : aws_subnet.public
-  domain   = "vpc"
+  # vytvoř EIP pro všechny public subnety, nebo jen pro "0" když je single NAT
+  for_each = { for k, s in aws_subnet.public : k => s if !var.single_nat_gateway || k == "0" }
+
+  domain = "vpc"
   tags = {
     Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-eip-0" : "${var.project}-${var.environment}-nat-eip-${each.key}"
   }
 }
 
 resource "aws_nat_gateway" "nat" {
-  for_each     = var.single_nat_gateway ? { "0" = aws_subnet.public["0"].id } : aws_subnet.public
+  # stejné klíče jako u aws_eip.nat
+  for_each = { for k, s in aws_subnet.public : k => s if !var.single_nat_gateway || k == "0" }
+
   allocation_id = aws_eip.nat[each.key].id
-  subnet_id     = var.single_nat_gateway ? aws_subnet.public["0"].id : aws_subnet.public[each.key].id
+  subnet_id     = each.value.id
 
   tags = {
-    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-0" : "${var.project}-${var.environment}-nat-${each.key}"
+    Name = "${var.project}-${var.environment}-nat-${each.key}"
   }
   depends_on = [aws_internet_gateway.igw]
 }

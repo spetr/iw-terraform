@@ -208,12 +208,15 @@ resource "aws_lb_listener" "nlb_listener_tls" {
 }
 
 locals {
+  nlb_ports_str = [for p in local.nlb_ports : tostring(p)]
+  app_indexes   = range(length(aws_instance.app))
+
   nlb_pairs = flatten([
-    for port, tg in aws_lb_target_group.nlb_tg : [
-      for i in aws_instance.app : {
-        key  = "${port}-${i.id}"
-        port = port
-        id   = i.id
+    for port in local.nlb_ports_str : [
+      for idx in local.app_indexes : {
+        key   = "${port}-${idx}" // statický klíč známý při planu
+        port  = port
+        index = idx
       }
     ]
   ])
@@ -223,6 +226,6 @@ resource "aws_lb_target_group_attachment" "nlb_ec2" {
   for_each = { for p in local.nlb_pairs : p.key => p }
 
   target_group_arn = aws_lb_target_group.nlb_tg[each.value.port].arn
-  target_id        = each.value.id
+  target_id        = aws_instance.app[each.value.index].id
   port             = tonumber(each.value.port)
 }
