@@ -55,6 +55,13 @@ variable "availability_zones" {
   default     = []
 }
 
+# Use a single NAT Gateway in the first public subnet instead of one per AZ
+variable "single_nat_gateway" {
+  description = "When true, create only one NAT Gateway (in subnet index 0) and route all private subnets through it."
+  type        = bool
+  default     = false
+}
+
 ############################################
 # Compute (EC2) & Access
 ############################################
@@ -94,6 +101,13 @@ variable "ec2_key_name" {
 # Enable creation of a third EFS "archive" (in addition to data and config).
 variable "enable_efs_archive" {
   description = "Whether to create an optional third EFS filesystem named 'archive'."
+  type        = bool
+  default     = false
+}
+
+# Create EFS mount targets only in a single AZ (first private subnet) to reduce costs
+variable "efs_single_az_mount_targets" {
+  description = "When true, create EFS mount targets only in the first private subnet (single AZ)."
   type        = bool
   default     = false
 }
@@ -187,6 +201,13 @@ variable "db_storage_throughput" {
   description = "Storage throughput in MB/s (only for gp3, not necessary but recommended)."
   type        = number
   default     = null
+}
+
+# Enable RDS Multi-AZ (creates a synchronous standby in another AZ).
+variable "db_multi_az" {
+  description = "Whether to enable RDS Multi-AZ for the MySQL instance."
+  type        = bool
+  default     = false
 }
 
 ############################################

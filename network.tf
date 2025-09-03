@@ -48,20 +48,20 @@ resource "aws_subnet" "private" {
 }
 
 resource "aws_eip" "nat" {
-  for_each = aws_subnet.public
+  for_each = var.single_nat_gateway ? { "0" = aws_subnet.public["0"].id } : aws_subnet.public
   domain   = "vpc"
   tags = {
-    Name = "${var.project}-${var.environment}-nat-eip-${each.key}"
+    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-eip-0" : "${var.project}-${var.environment}-nat-eip-${each.key}"
   }
 }
 
 resource "aws_nat_gateway" "nat" {
-  for_each     = aws_subnet.public
+  for_each     = var.single_nat_gateway ? { "0" = aws_subnet.public["0"].id } : aws_subnet.public
   allocation_id = aws_eip.nat[each.key].id
-  subnet_id     = aws_subnet.public[each.key].id
+  subnet_id     = var.single_nat_gateway ? aws_subnet.public["0"].id : aws_subnet.public[each.key].id
 
   tags = {
-    Name = "${var.project}-${var.environment}-nat-${each.key}"
+    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-0" : "${var.project}-${var.environment}-nat-${each.key}"
   }
   depends_on = [aws_internet_gateway.igw]
 }
@@ -91,7 +91,7 @@ resource "aws_route_table" "private" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.nat[each.key].id
+    nat_gateway_id = var.single_nat_gateway ? aws_nat_gateway.nat["0"].id : aws_nat_gateway.nat[each.key].id
   }
 
   tags = {
@@ -103,6 +103,20 @@ resource "aws_route_table_association" "private" {
   for_each       = aws_subnet.private
   subnet_id      = each.value.id
   route_table_id = aws_route_table.private[each.key].id
+}
+
+# S3 Gateway VPC Endpoint for private subnets (reduces NAT usage for S3 traffic)
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = aws_vpc.main.id
+  service_name      = "com.amazonaws.${var.aws_region}.s3"
+  vpc_endpoint_type = "Gateway"
+
+  # Associate with all private route tables
+  route_table_ids = [for rt in aws_route_table.private : rt.id]
+
+  tags = {
+    Name = "${var.project}-${var.environment}-s3-endpoint"
+  }
 }
 
 # Security groups

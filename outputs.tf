@@ -18,6 +18,10 @@ output "ec2_private_ips" {
   value = aws_instance.app[*].private_ip
 }
 
+output "ec2_availability_zones" {
+  value = aws_instance.app[*].availability_zone
+}
+
 output "alb_dns_name" {
   value = aws_lb.alb.dns_name
 }
