@@ -179,6 +179,40 @@ Poznámky k routování a DNS:
 - Internetový provoz klienta zůstává mimo tunel (není přidána 0.0.0.0/0).
 - Volitelné DNS servery jsou v endpointu nastaveny (`dns_servers`); klient je může použít pro dotazy k prostředkům ve VPC.
 
+### SAML federace pro Client VPN (IAM + IdP)
+
+Co budete potřebovat:
+- IdP kompatibilní se SAML 2.0 (Azure AD, Okta, ADFS, …).
+- V AWS IAM vytvořený SAML provider založený na metadatech z vašeho IdP.
+
+Kroky v IdP (nová SAML aplikace pro AWS Client VPN):
+1) Nastavte SSO/ACS URL (Assertion Consumer Service):
+	 - `https://self-service.clientvpn.amazonaws.com/api/auth/sso/saml`
+2) Audience/Entity ID (SP Entity ID):
+	 - `urn:amazon:webservices:clientvpn`
+3) NameID: běžně EmailAddress/Unspecified (dle IdP, nevyžaduje speciální formát).
+4) Podepisujte SAML assertion (doporučeno).
+5) Atributy (pro skupinové řízení přístupu): přidejte atribut např. `memberOf` (nebo `Groups`) s hodnotami názvů/skupin, které chcete používat pro autorizaci v Client VPN.
+6) Exportujte metadata IdP (XML).
+
+Kroky v AWS IAM:
+1) IAM → Identity providers → Add provider → SAML.
+2) Zadejte název, nahrajte metadata z předchozího kroku.
+3) Uložte a poznamenejte si ARN providera.
+
+V Terraformu (tento projekt):
+- Do `terraform.tfvars` nastavte:
+	- `client_vpn_auth_saml_provider_arn = "arn:aws:iam::<account-id>:saml-provider/<name>"`
+- Serverový certifikát stále musí být v ACM: `client_vpn_certificate_arn = "arn:aws:acm:..."`.
+
+Autorizace přístupu (skupiny vs. všichni):
+- Tento stack defaultně povoluje všechny skupiny v rámci VPC (`authorize_all_groups = true`).
+- Chcete‑li omezit dle skupin ze SAML assertion, upravte `aws_ec2_client_vpn_authorization_rule`:
+	- nastavte `authorize_all_groups = false` a `access_group_id = "<název_skupiny_ze_SAML>"` (musí odpovídat hodnotě atributu, např. `memberOf`).
+
+Důležité:
+- SAML federace nepoužívá IAM uživatele. Uživatelé a jejich skupiny se spravují v IdP; v IAM pouze registrujete SAML provider a v Client VPN referencujete jeho ARN.
+
 ## Clean up
 ```
 terraform destroy
