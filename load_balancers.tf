@@ -76,6 +76,13 @@ resource "aws_lb_target_group_attachment" "alb_ec2" {
   port             = 80
 }
 
+# Optionally associate an existing WAFv2 Web ACL to ALB
+resource "aws_wafv2_web_acl_association" "alb" {
+  count        = var.waf_web_acl_arn == null ? 0 : 1
+  resource_arn = aws_lb.alb.arn
+  web_acl_arn  = var.waf_web_acl_arn
+}
+
 # Network Load Balancer for TCP ports (mail protocols)
 resource "aws_lb" "nlb" {
   name               = "${var.project}-${var.environment}-nlb"

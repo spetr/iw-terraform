@@ -239,6 +239,13 @@ variable "alb_certificate_arn" {
   default     = null
 }
 
+# Optional: attach AWS WAFv2 Web ACL to the ALB (REGIONAL scope only)
+variable "waf_web_acl_arn" {
+  description = "Optional ARN of an existing AWS WAFv2 Web ACL (REGIONAL) to associate with the ALB."
+  type        = string
+  default     = null
+}
+
 ############################################
 # Email Amazon SES (optional)
 ############################################
