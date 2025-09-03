@@ -75,7 +75,7 @@ resource "aws_instance" "app" {
               echo "${aws_efs_file_system.data.id}:/ /opt/icewarp/mail efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
               # Mount archive EFS if created
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
-                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /mnt/archive efs _netdev,tls,nconnect=4,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
+                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /opt/icewarp/archive efs _netdev,tls,nconnect=4,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
               fi
               systemctl daemon-reload
               mount -a -t efs,nfs4
