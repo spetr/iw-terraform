@@ -89,6 +89,96 @@ client_vpn_certificate_arn     = "arn:aws:acm:..."
 # client_vpn_auth_saml_provider_arn      = "arn:aws:iam::123456789012:saml-provider/YourIdP"
 ```
 
+### HTTPS certifikát pro ALB (ACM)
+
+Co je potřeba:
+- Doména (např. `app.example.com`) a přístup k DNS (ideálně Route53 v téže AWS účtu/regionu jako ALB).
+
+Postup:
+1) ACM (Certificate Manager) v regionu nasazení ALB → Request public certificate.
+	- Zadejte FQDN (např. `app.example.com` nebo `*.example.com`).
+	- Zvolte DNS validation. Pokud máte Hosted Zone v Route53, ACM může vytvořit CNAME automaticky.
+2) Po vystavení certifikátu zkopírujte jeho ARN a vložte do `terraform.tfvars`:
+	- `alb_certificate_arn = "arn:aws:acm:<region>:<account>:certificate/<id>"`
+3) `terraform apply` a v DNS vytvořte A/ALIAS záznam na hodnotu výstupu `alb_dns_name` (Route53: Alias na ALB).
+
+Poznámka: Když `alb_certificate_arn = null`, ALB nasadí pouze HTTP (80).
+
+### Certifikát pro Client VPN (server) a klientská autentizace
+
+Client VPN endpoint vyžaduje v ACM serverový certifikát v tomtéž regionu. Autentizace může být:
+- Mutual TLS (klientské certifikáty): potřebujete
+  - server certifikát (ARN → `client_vpn_certificate_arn`),
+  - root CA cert klientů (ARN → `client_vpn_client_root_certificate_arn`).
+- SAML federace: stačí server certifikát (ARN → `client_vpn_certificate_arn`) a `client_vpn_auth_saml_provider_arn`.
+
+Rychlý příklad (vlastní privátní CA pro Mutual TLS):
+1) Vygenerujte CA a server certifikát (OpenSSL; zjednodušený příklad):
+```
+# Root CA (chránit soukromý klíč!)
+openssl genrsa -out ca.key 4096
+openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -subj "/CN=Example VPN Root CA" -out ca.crt
+
+# Server key + CSR
+openssl genrsa -out server.key 2048
+openssl req -new -key server.key -subj "/CN=vpn.example.com" -out server.csr
+
+# Podepište CSR root CA (přidejte SAN dle potřeby)
+openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out server.crt -days 825 -sha256
+```
+2) Import do ACM (region Client VPN):
+	- Server cert: ACM → Import certificate → `server.crt` (Certificate), `server.key` (Private key), `ca.crt` (Certificate chain, pokud relevantní).
+	- Root CA klientů: ACM → Import certificate → `ca.crt` (jen certifikát; bez privátního klíče).
+3) Do `terraform.tfvars` vložte:
+```
+client_vpn_certificate_arn              = "arn:aws:acm:<region>:<account>:certificate/<server-id>"
+client_vpn_client_root_certificate_arn  = "arn:aws:acm:<region>:<account>:certificate/<ca-id>"
+```
+4) Vygenerujte klientské certifikáty podepsané stejnou CA (např. `client.key` + `client.crt`) a distribuujte uživatelům; vložte je do `client.ovpn` nebo nastavte v klientovi.
+
+Poznámky:
+- Certifikáty musí být v ACM ve stejném regionu jako ALB/Client VPN endpoint.
+- Pro SAML není potřeba `client_vpn_client_root_certificate_arn` ani klientské certifikáty.
+
+### Client VPN – konfigurace klienta (Windows, macOS)
+
+Předpoklady:
+- Endpoint je nasazen (`enable_client_vpn = true`).
+- Používáte buď:
+	- vzájemnou TLS autentizaci (server cert v ACM + klientský cert podepsaný stejným root CA jako `client_vpn_client_root_certificate_arn`), nebo
+	- SAML federaci (`client_vpn_auth_saml_provider_arn`).
+
+1) Získání klientské konfigurace (.ovpn)
+- Konzole AWS: VPC → Client VPN Endpoints → váš endpoint → Download client configuration.
+- Nebo AWS CLI:
+	- (volitelné) uložte do souboru, např. `client.ovpn`.
+
+2) Mutual TLS (klientský certifikát)
+- Vytvořte klientský certifikát a privátní klíč podepsané vaším klientským root CA (stejným, který je v ACM jako root pro endpoint).
+- Do `client.ovpn` vložte certifikát a klíč buď jako cesty:
+	- `cert client.crt`
+	- `key client.key`
+	nebo přímo vložte bloky:
+	- `<cert>...</cert>` a `<key>...</key>`
+
+3) Windows
+- Doporučeno: AWS VPN Client for Windows.
+	- Stáhněte a nainstalujte (AWS Client VPN Desktop Application).
+	- Add Profile → Importujte `client.ovpn` (pokud není cert zakomponován, vyberte klientský cert/klíč dle výzvy).
+	- Connect.
+- Alternativa: OpenVPN GUI – import `client.ovpn` a připojte se.
+
+4) macOS
+- Doporučeno: AWS VPN Client for macOS.
+	- Nainstalujte, Add Profile → import `client.ovpn` (případně přiložte cert/klíč).
+	- Connect.
+- Alternativy: Tunnelblick/Viscosity – import `client.ovpn` a připojte se.
+
+Poznámky k routování a DNS:
+- Split tunneling je zapnutý; klient dostane výhradně trasy do VPC (`var.vpc_cidr`).
+- Internetový provoz klienta zůstává mimo tunel (není přidána 0.0.0.0/0).
+- Volitelné DNS servery jsou v endpointu nastaveny (`dns_servers`); klient je může použít pro dotazy k prostředkům ve VPC.
+
 ## Clean up
 ```
 terraform destroy
