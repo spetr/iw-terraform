@@ -2,6 +2,14 @@ locals {
   ses_enabled       = var.enable_ses
   email_identities  = var.ses_email_identities
   domain_identities = var.ses_domain_identities
+
+  # ARNs of identities actually created by this stack (email or domain, depending on config)
+  ses_identity_arns = concat(
+    [for i in aws_ses_email_identity.this : i.arn],
+    [for d in aws_ses_domain_identity.this : d.arn]
+  )
+  # Use specific identity ARNs when available; fall back to "*" if none exist
+  ses_send_policy_resource = length(local.ses_identity_arns) > 0 ? local.ses_identity_arns : ["*"]
 }
 
 resource "aws_ses_email_identity" "this" {
@@ -85,7 +93,7 @@ resource "aws_iam_policy" "ses_send_email" {
           "ses:SendEmail",
           "ses:SendRawEmail"
         ],
-        Resource = "*"
+  Resource = local.ses_send_policy_resource
       }
     ]
   })
