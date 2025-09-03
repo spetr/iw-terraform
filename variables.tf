@@ -87,9 +87,9 @@ variable "ec2_instance_count" {
   default     = 1
 }
 
-# Optional: explicit AMI ID for EC2/bastion. If null, Rocky Linux 9.6 will be looked up.
+# Optional: explicit AMI ID for EC2/bastion. If null, Amazon Linux 2023 will be used (via SSM parameter lookup).
 variable "ec2_ami_id" {
-  description = "Optional explicit AMI ID to use for EC2 and bastion. If null, Terraform will try to find Rocky Linux 9.6 automatically."
+  description = "Optional explicit AMI ID to use for EC2 and bastion. If null, Terraform will use Amazon Linux 2023 AMI via SSM parameter."
   type        = string
   default     = null
 }

@@ -71,6 +71,7 @@ terraform apply
 ```
 
 ## Notes
+- AMI: Uses Amazon Linux 2023 by default (via SSM Parameter Store). No Marketplace subscription needed.
 - Private EC2 instances have Internet egress via NAT Gateways in each public subnet (HA egress).
 - Security is permissive for demo. Tighten CIDR ranges and consider SSM-only access (disable SSH).
 - SSH access is disabled by default. To enable direct SSH to EC2, set `enable_ssh_access = true` and adjust `allowed_ssh_cidr`.
@@ -214,6 +215,14 @@ Důležité:
 - SAML federace nepoužívá IAM uživatele. Uživatelé a jejich skupiny se spravují v IdP; v IAM pouze registrujete SAML provider a v Client VPN referencujete jeho ARN.
 
 ## Clean up
+
 ```
 terraform destroy
 ```
+
+data "aws_ssm_parameter" "al2023_ami" {
+	name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
+}
+
+# v aws_instance:
+# ami = data.aws_ssm_parameter.al2023_ami.value
