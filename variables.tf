@@ -23,6 +23,13 @@ variable "aws_region" {
   default     = "eu-central-1"
 }
 
+variable "aws_profile" {
+  description = "AWS profile to deploy resources in."
+  type        = string
+  default     = null
+}
+
+
 ############################################
 # Networking (VPC & Subnets)
 ############################################
@@ -361,8 +368,9 @@ variable "client_vpn_cidr" {
 
 # ACM server certificate for the Client VPN endpoint.
 variable "client_vpn_certificate_arn" {
-  description = "ACM server certificate for the Client VPN endpoint."
+  description = "ACM server certificate for the Client VPN endpoint. Required only when enable_client_vpn = true."
   type        = string
+  default     = null
 }
 
 # ACM certificate ARN for the client certificate root CA (mutual TLS).
