@@ -103,7 +103,9 @@ resource "aws_wafv2_web_acl" "basic" {
         vendor_name = "AWS"
       }
     }
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "common"
@@ -120,7 +122,9 @@ resource "aws_wafv2_web_acl" "basic" {
         vendor_name = "AWS"
       }
     }
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "bad-inputs"
@@ -137,7 +141,9 @@ resource "aws_wafv2_web_acl" "basic" {
         vendor_name = "AWS"
       }
     }
-    override_action { none {} }
+    override_action {
+      none {}
+    }
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "sqli"
