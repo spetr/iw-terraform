@@ -269,6 +269,30 @@ resource "aws_security_group" "efs_sg" {
     security_groups = [aws_security_group.ec2_sg.id]
   }
 
+  # Allow NFS from bastion if created (useful for troubleshooting mounts from bastion)
+  dynamic "ingress" {
+    for_each = var.create_bastion ? [1] : []
+    content {
+      description     = "NFS from Bastion"
+      from_port       = 2049
+      to_port         = 2049
+      protocol        = "tcp"
+      security_groups = [aws_security_group.bastion_sg[0].id]
+    }
+  }
+
+  # Allow NFS from Client VPN endpoint-associated ENIs when Client VPN is enabled
+  dynamic "ingress" {
+    for_each = var.enable_client_vpn ? [1] : []
+    content {
+      description     = "NFS from Client VPN"
+      from_port       = 2049
+      to_port         = 2049
+      protocol        = "tcp"
+      security_groups = [aws_security_group.client_vpn_sg[0].id]
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

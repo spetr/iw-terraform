@@ -36,6 +36,7 @@ resource "aws_instance" "app" {
   ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
   instance_type          = var.ec2_instance_type
   subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
+  private_ip             = cidrhost(var.private_subnets[0], 11 + count.index)
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   key_name               = var.ec2_key_name
@@ -46,42 +47,43 @@ resource "aws_instance" "app" {
               set -euxo pipefail
               dnf -y update
               dnf -y install amazon-efs-utils nfs-utils
+
               # Ensure SSM Agent is running (preinstalled on Amazon Linux 2023)
               systemctl enable --now amazon-ssm-agent || true
+
               # Ensure SSH is installed and running
               dnf -y install openssh-server || true
               systemctl enable --now sshd || true
-              # Set default shell to bash for ssm-user once it exists (created by SSM Agent)              
-              usermod -s /bin/bash ssm-user || true
-              systemctl enable --now set-ssm-user-shell.service || true
-              # Ensure SSH is installed and running
+
               # Set and preserve hostname to match the instance Name tag
               HOSTNAME="${var.project}-${var.environment}-app-${count.index}"
               hostnamectl set-hostname "$HOSTNAME"
               mkdir -p /etc/cloud/cloud.cfg.d
               printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
               grep -q "\b$HOSTNAME\b" /etc/hosts || echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
+
+              # Simple web app placeholder
+              dnf install -y nginx
+              echo "<h1>${var.project}-${var.environment} EC2 up (${count.index})</h1>" > /usr/share/nginx/html/index.html
+              systemctl enable --now nginx
+
               mkdir -p /opt/icewarp/config
               mkdir -p /opt/icewarp/mail
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
                 mkdir -p /opt/icewarp/archive
               fi
-              echo "${aws_efs_file_system.config.id}:/ /opt/icewarp/config efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
-              echo "${aws_efs_file_system.data.id}:/ /opt/icewarp/mail efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
-              # Mount archive EFS if created
+              echo "${aws_efs_file_system.config.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/config efs _netdev,tls,nconnect=4,noresvport,nfsvers=4.1,noatime,nodiratime,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.data.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/mail efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1,noatime,nodiratime,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
-                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /opt/icewarp/archive efs _netdev,tls,nconnect=4,noresvport,nfsvers=4.1 0 0" >> /etc/fstab
+                echo "${try(aws_efs_file_system.archive[0].id, "")}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/archive efs _netdev,tls,nconnect=8,noresvport,nfsvers=4.1,noatime,nodiratime,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
               fi
               systemctl daemon-reload
               mount -a -t efs,nfs4
-              # Simple web app placeholder
-              dnf install -y nginx
-              echo "<h1>${var.project}-${var.environment} EC2 up (${count.index})</h1>" > /usr/share/nginx/html/index.html
-              systemctl enable --now nginx
+
               EOF
 
   tags = {
-  Name = "${var.project}-${var.environment}-app-${count.index}"
+  Name = "${var.project}-${var.environment}-app-${count.index + 1}"
   }
 }
 
@@ -125,6 +127,7 @@ resource "aws_instance" "bastion" {
   ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
   instance_type          = var.bastion_instance_type
   subnet_id              = local.private_subnet_ids[0]
+  private_ip             = cidrhost(var.private_subnets[0], 10)
   vpc_security_group_ids = [aws_security_group.bastion_sg[0].id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   associate_public_ip_address = false
