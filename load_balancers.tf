@@ -29,6 +29,13 @@ resource "aws_lb_target_group" "alb_tg" {
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
 
+  # Enable sticky sessions on ALB using LB cookie
+  stickiness {
+    type            = "lb_cookie"
+    enabled         = true
+    cookie_duration = 86400 # 1 day
+  }
+
   health_check {
     path                = "/"
     protocol            = "HTTP"
@@ -178,6 +185,12 @@ resource "aws_lb_target_group" "nlb_tg" {
   protocol = "TCP"
   vpc_id   = aws_vpc.main.id
   target_type = "instance"
+
+  # Enable stickiness on NLB by source IP
+  stickiness {
+    type    = "source_ip"
+    enabled = true
+  }
 }
 
 resource "aws_lb_listener" "nlb_listener_tcp" {
