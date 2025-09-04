@@ -36,7 +36,7 @@ resource "aws_instance" "app" {
   ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
   instance_type          = var.ec2_instance_type
   subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
-  private_ip             = cidrhost(var.private_subnets[0], 11 + count.index)
+  private_ip             = cidrhost(var.private_subnets[count.index % length(local.private_subnet_ids)], 11 + count.index)
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   key_name               = var.ec2_key_name
