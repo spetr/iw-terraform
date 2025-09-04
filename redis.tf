@@ -1,6 +1,6 @@
 resource "aws_elasticache_subnet_group" "this" {
   name       = "${var.project}-${var.environment}-redis-subnets"
-  subnet_ids = [for s in aws_subnet.main : s.id]
+  subnet_ids = [for s in aws_subnet.private : s.id]
 }
 
 resource "aws_elasticache_cluster" "redis" {

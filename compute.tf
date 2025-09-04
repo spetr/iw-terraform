@@ -28,14 +28,14 @@ resource "aws_iam_instance_profile" "ec2" {
 }
 
 locals {
-  subnet_ids = [for s in aws_subnet.main : s.id]
+  private_subnet_ids = [for s in aws_subnet.private : s.id]
 }
 
 resource "aws_instance" "app" {
   count                  = var.ec2_instance_count
   ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
   instance_type          = var.ec2_instance_type
-  subnet_id              = element(local.subnet_ids, count.index % length(local.subnet_ids))
+  subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   key_name               = var.ec2_key_name
@@ -98,7 +98,7 @@ resource "aws_instance" "bastion" {
   count                  = var.create_bastion ? 1 : 0
   ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
   instance_type          = var.bastion_instance_type
-  subnet_id              = local.subnet_ids[0]
+  subnet_id              = local.private_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.bastion_sg[0].id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   associate_public_ip_address = false

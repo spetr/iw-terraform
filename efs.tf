@@ -19,14 +19,14 @@ resource "aws_efs_file_system" "config" {
 }
 
 resource "aws_efs_mount_target" "data" {
-  for_each        = var.efs_single_az_mount_targets ? { "0" = aws_subnet.main["0"] } : aws_subnet.main
+  for_each        = var.efs_single_az_mount_targets ? { "0" = aws_subnet.private["0"] } : aws_subnet.private
   file_system_id  = aws_efs_file_system.data.id
   subnet_id       = each.value.id
   security_groups = [aws_security_group.efs_sg.id]
 }
 
 resource "aws_efs_mount_target" "config" {
-  for_each        = var.efs_single_az_mount_targets ? { "0" = aws_subnet.main["0"] } : aws_subnet.main
+  for_each        = var.efs_single_az_mount_targets ? { "0" = aws_subnet.private["0"] } : aws_subnet.private
   file_system_id  = aws_efs_file_system.config.id
   subnet_id       = each.value.id
   security_groups = [aws_security_group.efs_sg.id]
@@ -45,7 +45,7 @@ resource "aws_efs_file_system" "archive" {
 }
 
 resource "aws_efs_mount_target" "archive" {
-  for_each        = var.enable_efs_archive ? (var.efs_single_az_mount_targets ? { "0" = aws_subnet.main["0"] } : aws_subnet.main) : {}
+  for_each        = var.enable_efs_archive ? (var.efs_single_az_mount_targets ? { "0" = aws_subnet.private["0"] } : aws_subnet.private) : {}
   file_system_id  = aws_efs_file_system.archive[0].id
   subnet_id       = each.value.id
   security_groups = [aws_security_group.efs_sg.id]
