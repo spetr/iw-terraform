@@ -1,6 +1,6 @@
 # Architecture diagram
 
-Below is a Mermaid diagram showing the components and how they connect within AWS.
+Následující Mermaid schéma zobrazuje architekturu po přechodu na jednu síť (sjednocené subnety, bez NATu a bez rozlišení public/private).
 
 ```mermaid
 flowchart LR
@@ -11,16 +11,12 @@ flowchart LR
     subgraph VPC["VPC (10.0.0.0/16)"]
       IGW["Internet Gateway"]
 
-      subgraph Public["Public Subnets (AZ a,b)"]
+      subgraph Unified["Unified Subnets (AZ a,b)"]
         ALB["ALB (HTTP/HTTPS)"]
         NLB["NLB (TCP: 25,465,587,143,993,110,995)"]
-        NAT["NAT Gateway (per AZ)"]
-        CVPN["Client VPN Endpoint"]
-        EC2P["EC2 (public-facing representation)"]
-      end
-
-      subgraph Private["Private Subnets (AZ a,b)"]
         EC2["EC2 App instance(s)"]
+        Bastion["Bastion (SSM-only)"]
+        CVPN["Client VPN Endpoint"]
         EFS1["EFS (data)"]
         EFS2["EFS (config)"]
         RDS[("RDS MySQL")]
@@ -34,10 +30,9 @@ flowchart LR
   IGW -->|80/443| ALB
   IGW -->|25,465,587,143,993,110,995| NLB
 
-  %% Load balancer to EC2 (public representation)
-  ALB -->|HTTP 80| EC2P
-  NLB -->|TCP mail ports| EC2P
-  EC2P -. same instances -.-> EC2
+  %% Load balancers to EC2
+  ALB -->|HTTP 80| EC2
+  NLB -->|TCP mail ports| EC2
 
   %% East-west inside VPC
   EC2 -- "NFS 2049" --> EFS1
@@ -45,27 +40,22 @@ flowchart LR
   EC2 -->|"MySQL 3306"| RDS
   EC2 -->|"Redis 6379"| Redis
 
-  %% Egress
-  EC2 -->|egress| NAT
-  NAT --> IGW
-  IGW --> Internet
+  %% Egress (no NAT)
+  EC2 -->|egress| IGW
 
   %% VPN access into VPC
-  Client --> CVPN --> Private
-
-  classDef ghost fill:#ffffff,stroke:#888,stroke-dasharray: 5 5,color:#666;
-  class EC2P ghost;
+  Client --> CVPN --> Unified
 ```
 
 Legend
-- EC2P is jen vizuální zobrazení EC2 „na hraně“ veřejné vrstvy (ve skutečnosti běží v private subnets, publikováno přes ALB/NLB).
-- ALB terminates HTTP/HTTPS a předává HTTP 80 na EC2.
+- Jediná sada „Unified Subnets“ slouží všem komponentám (ALB, NLB, EC2, RDS, Redis, EFS, Client VPN).
+- ALB terminates HTTP/HTTPS a posílá HTTP 80 na EC2.
 - NLB předává TCP pro mail protokoly přímo na EC2.
-- EC2 mountuje obě EFS (data/config) přes NFS 2049.
-- EC2 přistupuje k RDS na 3306 a k Redis na 6379.
-- Egress z EC2 jde přes NAT Gateway do Internetu.
-- Client VPN endpoint umožňuje přístup do VPC subnetů.
+- EC2 mountuje EFS (data/config) přes NFS 2049; přistupuje k RDS (3306) a Redis (6379).
+- Egress z EC2 jde přímo přes Internet Gateway (bez NAT Gateway).
+- Client VPN endpoint je asociován do sjednocených subnetů.
 
 Notes
-- Skutečné názvy AZ a subnet CIDRs jsou v `variables.tf`.
-- Security Groups omezují provoz dle konfigurace v `network.tf`.
+- CIDR rozsahy sjednocených subnetů nastavíte ve `variables.tf` (`var.subnets`).
+- Security Groups definované v `network.tf` omezují příchozí/příchozí provoz; povolen je ICMP v rámci VPC pro diagnostiku.
+- Pro S3 je zřízen Gateway VPC Endpoint na route table sjednocené sítě (omezuje egress přes Internet).

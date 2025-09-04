@@ -41,18 +41,12 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-# CIDR list for public subnets (count should match AZs; map_public_ip_on_launch = true).
-variable "public_subnets" {
-  description = "List of public subnet CIDRs."
+# Single list of subnet CIDRs used across the stack (ALB/NLB/EC2/RDS/etc.).
+# Must span at least two AZs for multi-AZ services. These subnets will be routed to the Internet Gateway.
+variable "subnets" {
+  description = "List of subnet CIDRs used for all resources (single network)."
   type        = list(string)
   default     = ["10.0.0.0/24", "10.0.1.0/24"]
-}
-
-# CIDR list for private subnets (no public IPs).
-variable "private_subnets" {
-  description = "List of private subnet CIDRs."
-  type        = list(string)
-  default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
 # Optional list of AZs; if empty, the first 2 available will be used.
@@ -62,12 +56,7 @@ variable "availability_zones" {
   default     = []
 }
 
-# Use a single NAT Gateway in the first public subnet instead of one per AZ
-variable "single_nat_gateway" {
-  description = "When true, create only one NAT Gateway (in subnet index 0) and route all private subnets through it."
-  type        = bool
-  default     = false
-}
+# NAT Gateways are not used in the single-network setup (egress via public subnets with IGW).
 
 ############################################
 # Compute (EC2) & Access

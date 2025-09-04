@@ -25,7 +25,7 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
 }
 
 resource "aws_ec2_client_vpn_network_association" "this" {
-  for_each               = var.enable_client_vpn ? aws_subnet.public : {}
+  for_each               = var.enable_client_vpn ? aws_subnet.main : {}
   client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.this[0].id
   subnet_id              = each.value.id
 }

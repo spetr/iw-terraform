@@ -24,50 +24,16 @@ resource "aws_internet_gateway" "igw" {
   }
 }
 
-resource "aws_subnet" "public" {
-  for_each                = { for idx, cidr in var.public_subnets : idx => cidr }
+resource "aws_subnet" "main" {
+  for_each                = { for idx, cidr in var.subnets : idx => cidr }
   vpc_id                  = aws_vpc.main.id
   cidr_block              = each.value
   availability_zone       = local.azs[tonumber(each.key)]
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "${var.project}-${var.environment}-public-${each.key}"
+    Name = "${var.project}-${var.environment}-subnet-${each.key}"
   }
-}
-
-resource "aws_subnet" "private" {
-  for_each          = { for idx, cidr in var.private_subnets : idx => cidr }
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = each.value
-  availability_zone = local.azs[tonumber(each.key)]
-
-  tags = {
-    Name = "${var.project}-${var.environment}-private-${each.key}"
-  }
-}
-
-resource "aws_eip" "nat" {
-  # vytvoř EIP pro všechny public subnety, nebo jen pro "0" když je single NAT
-  for_each = { for k, s in aws_subnet.public : k => s if !var.single_nat_gateway || k == "0" }
-
-  domain = "vpc"
-  tags = {
-    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-eip-0" : "${var.project}-${var.environment}-nat-eip-${each.key}"
-  }
-}
-
-resource "aws_nat_gateway" "nat" {
-  # stejné klíče jako u aws_eip.nat
-  for_each = { for k, s in aws_subnet.public : k => s if !var.single_nat_gateway || k == "0" }
-
-  allocation_id = aws_eip.nat[each.key].id
-  subnet_id     = each.value.id
-
-  tags = {
-    Name = "${var.project}-${var.environment}-nat-${each.key}"
-  }
-  depends_on = [aws_internet_gateway.igw]
 }
 
 resource "aws_route_table" "public" {
@@ -83,30 +49,10 @@ resource "aws_route_table" "public" {
   }
 }
 
-resource "aws_route_table_association" "public" {
-  for_each       = aws_subnet.public
+resource "aws_route_table_association" "main" {
+  for_each       = aws_subnet.main
   subnet_id      = each.value.id
   route_table_id = aws_route_table.public.id
-}
-
-resource "aws_route_table" "private" {
-  for_each = aws_subnet.private
-  vpc_id   = aws_vpc.main.id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = var.single_nat_gateway ? aws_nat_gateway.nat["0"].id : aws_nat_gateway.nat[each.key].id
-  }
-
-  tags = {
-    Name = "${var.project}-${var.environment}-private-rt-${each.key}"
-  }
-}
-
-resource "aws_route_table_association" "private" {
-  for_each       = aws_subnet.private
-  subnet_id      = each.value.id
-  route_table_id = aws_route_table.private[each.key].id
 }
 
 # S3 Gateway VPC Endpoint for private subnets (reduces NAT usage for S3 traffic)
@@ -115,8 +61,8 @@ resource "aws_vpc_endpoint" "s3" {
   service_name      = "com.amazonaws.${var.aws_region}.s3"
   vpc_endpoint_type = "Gateway"
 
-  # Associate with all private route tables
-  route_table_ids = [for rt in aws_route_table.private : rt.id]
+  # Associate with the single public route table
+  route_table_ids = [aws_route_table.public.id]
 
   tags = {
     Name = "${var.project}-${var.environment}-s3-endpoint"
@@ -147,6 +93,15 @@ resource "aws_security_group" "ec2_sg" {
     to_port         = 80
     protocol        = "tcp"
     security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  # Allow ICMP (ping) from within the VPC so instances and bastion can reach each other
+  ingress {
+    description = "ICMP from VPC"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.vpc_cidr]
   }
 
   # When no ALB certificate is provided, HTTPS is exposed via NLB as TCP/443 passthrough

@@ -19,7 +19,7 @@ resource "aws_lb" "alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [for s in aws_subnet.public : s.id]
+  subnets            = [for s in aws_subnet.main : s.id]
   idle_timeout       = 60
 }
 
@@ -169,7 +169,7 @@ resource "aws_lb" "nlb" {
   name               = "${var.project}-${var.environment}-nlb"
   internal           = false
   load_balancer_type = "network"
-  subnets            = [for s in aws_subnet.public : s.id]
+  subnets            = [for s in aws_subnet.main : s.id]
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
