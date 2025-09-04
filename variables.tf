@@ -239,6 +239,13 @@ variable "redis_engine_version" {
 # Load Balancing / Certificates
 ############################################
 
+# Enable AWS Global Accelerator to get static anycast IPs shared for ALB and NLB.
+variable "enable_global_accelerator" {
+  description = "When true, create an AWS Global Accelerator in front of ALB and NLB to provide the same static public IPs."
+  type        = bool
+  default     = true
+}
+
 # ACM certificate for HTTPS on ALB (if null, only HTTP is enabled).
 variable "alb_certificate_arn" {
   description = "ACM certificate ARN for HTTPS on ALB."

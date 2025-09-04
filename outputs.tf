@@ -58,6 +58,14 @@ output "bastion_instance_id" {
   value = try(aws_instance.bastion[0].id, null)
 }
 
+output "global_accelerator_dns" {
+  value = try(aws_globalaccelerator_accelerator.this[0].dns_name, null)
+}
+
+output "global_accelerator_ips" {
+  value = try(aws_globalaccelerator_accelerator.this[0].ip_sets[0].ip_addresses, null)
+}
+
 output "ses_email_identities" {
   value = try(keys(aws_ses_email_identity.this), [])
 }
