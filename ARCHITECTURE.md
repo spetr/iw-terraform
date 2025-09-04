@@ -20,7 +20,7 @@ flowchart LR
 
       subgraph Private["Private Subnets (AZ a,b)"]
         EC2["EC2 App instance(s)"]
-        Bastion["Bastion (SSM-only)"]
+        Bastion["Bastion (SSM + optional SSH)"]
         EFS1["EFS (data)"]
         EFS2["EFS (config)"]
         RDS[("RDS MySQL")]
@@ -53,7 +53,7 @@ flowchart LR
 
 Legend
 - Public subnets: ALB/NLB, NAT GW, Client VPN assoc.
-- Private subnets: EC2, RDS, Redis, EFS, Bastion (bez veřejné IP; přístup přes SSM).
+- Private subnets: EC2, RDS, Redis, EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
 - Egress z privátních EC2 jde přes NAT Gateway do Internetu.
 - S3 Gateway VPC Endpoint je připojen k private route tables.
 
@@ -61,3 +61,5 @@ Notes
 - CIDR pro `public_subnets` a `private_subnets` jsou v `variables.tf`.
 - `single_nat_gateway` umožní zřídit jen jeden NAT v public[0] a směrovat na něj všechny private RTs.
 - Security Groups definované v `network.tf` omezují provoz; ICMP v rámci VPC je povolen pro diagnostiku.
+ - SSH přístup: když `enable_ssh_access = true`, otevře se port 22 v SG pro EC2 (`allowed_ssh_cidr`) a volitelně i pro bastion SG.
+ - Hostname: EC2 app i bastion si při bootstrapu nastaví hostname podle Name tagu a zachovají jej napříč rebooty.

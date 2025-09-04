@@ -39,6 +39,7 @@ resource "aws_instance" "app" {
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   key_name               = var.ec2_key_name
+  user_data_replace_on_change = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -47,6 +48,19 @@ resource "aws_instance" "app" {
               dnf -y install amazon-efs-utils nfs-utils
               # Ensure SSM Agent is running (preinstalled on Amazon Linux 2023)
               systemctl enable --now amazon-ssm-agent || true
+              # Ensure SSH is installed and running
+              dnf -y install openssh-server || true
+              systemctl enable --now sshd || true
+              # Set default shell to bash for ssm-user once it exists (created by SSM Agent)              
+              usermod -s /bin/bash ssm-user || true
+              systemctl enable --now set-ssm-user-shell.service || true
+              # Ensure SSH is installed and running
+              # Set and preserve hostname to match the instance Name tag
+              HOSTNAME="${var.project}-${var.environment}-app-${count.index}"
+              hostnamectl set-hostname "$HOSTNAME"
+              mkdir -p /etc/cloud/cloud.cfg.d
+              printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
+              grep -q "\b$HOSTNAME\b" /etc/hosts || echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
               mkdir -p /opt/icewarp/config
               mkdir -p /opt/icewarp/mail
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
@@ -78,6 +92,18 @@ resource "aws_security_group" "bastion_sg" {
   description = "Bastion SG (SSM-only, no inbound)"
   vpc_id      = aws_vpc.main.id
 
+  # Optional SSH ingress to bastion when enabled
+  dynamic "ingress" {
+    for_each = var.enable_ssh_access ? [1] : []
+    content {
+      description = "SSH"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = var.allowed_ssh_cidr
+    }
+  }
+
   # Allow ICMP within VPC for diagnostics (ping)
   ingress {
     from_port   = -1
@@ -102,6 +128,8 @@ resource "aws_instance" "bastion" {
   vpc_security_group_ids = [aws_security_group.bastion_sg[0].id]
   iam_instance_profile   = aws_iam_instance_profile.ec2.name
   associate_public_ip_address = false
+  key_name               = var.ec2_key_name
+  user_data_replace_on_change = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -109,7 +137,19 @@ resource "aws_instance" "bastion" {
               dnf -y update
               # Ensure SSM Agent is running (preinstalled on Amazon Linux 2023)
               systemctl enable --now amazon-ssm-agent || true
-              # No SSH opening; rely on SSM
+              # Ensure SSH is installed and running
+              dnf -y install openssh-server || true
+              systemctl enable --now sshd || true
+              # Set default shell to bash for ssm-user once it exists (created by SSM Agent)              
+              usermod -s /bin/bash ssm-user || true
+              systemctl enable --now set-ssm-user-shell.service || true
+              # Set and preserve hostname to match the instance Name tag
+              HOSTNAME="${var.project}-${var.environment}-bastion"
+              hostnamectl set-hostname "$HOSTNAME"
+              mkdir -p /etc/cloud/cloud.cfg.d
+              printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
+              grep -q "\b$HOSTNAME\b" /etc/hosts || echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
+              # SSH available if security group allows it; SSM remains available
               EOF
 
   tags = {
