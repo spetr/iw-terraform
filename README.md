@@ -1,10 +1,10 @@
-# AWS VPC + EC2 + EFS x2 + RDS MySQL + ElastiCache Redis + ALB/NLB + Client VPN
+# AWS VPC + EC2 + EFS x2 + RDS MariaDB + ElastiCache Redis + ALB/NLB + Client VPN
 
 This Terraform stack creates:
 - VPC with public and private subnets (2 AZs)
 - EC2 instance in private subnet (with SSM, mounts two EFS: data and config)
 - EFS filesystems (data, config) with mount targets in private subnets
-- RDS MySQL in private subnets
+- RDS MariaDB in private subnets
 - ElastiCache Redis in private subnets
 - ALB for HTTP/HTTPS to EC2, NLB for TCP ports: 25, 465, 587, 143, 993, 110, 995
 - AWS Client VPN endpoint associated to public subnets for access into VPC

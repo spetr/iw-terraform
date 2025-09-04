@@ -71,7 +71,7 @@ aws ses send-email \
 
 ---
 
-## RDS MySQL (privátní)
+## RDS MariaDB (privátní)
 - Endpoint je neveřejný; připojení pouze z VPC (EC2/VPN).
 - Přihlašovací údaje: `db_username` a `db_password` (proměnné Terraformu).
 

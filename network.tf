@@ -220,7 +220,7 @@ resource "aws_security_group" "rds_sg" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "MySQL from EC2"
+    description     = "SQL 3306 from EC2"
     from_port       = 3306
     to_port         = 3306
     protocol        = "tcp"

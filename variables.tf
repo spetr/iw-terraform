@@ -125,19 +125,19 @@ variable "efs_provisioned_throughput_mibps" {
 }
 
 ############################################
-# Databases (RDS MySQL)
+# Databases (RDS MariaDB)
 ############################################
 
-# Master username for RDS MySQL.
+# Master username for RDS MariaDB.
 variable "db_username" {
-  description = "Master username for RDS MySQL."
+  description = "Master username for RDS MariaDB."
   type        = string
   default     = "admin"
 }
 
-# Master password for RDS MySQL (sensitive; pass securely via TF_VAR or SSM/Secrets).
+# Master password for RDS MariaDB (sensitive; pass securely via TF_VAR or SSM/Secrets).
 variable "db_password" {
-  description = "Master password for RDS MySQL. Use a secret manager in production."
+  description = "Master password for RDS MariaDB. Use a secret manager in production."
   type        = string
   sensitive   = true
 }

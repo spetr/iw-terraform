@@ -7,9 +7,9 @@ resource "aws_db_subnet_group" "this" {
 }
 
 resource "aws_db_instance" "mysql" {
-  identifier              = "${var.project}-${var.environment}-mysql"
-  engine                  = "mysql"
-  engine_version          = "8.4"
+  identifier              = "${var.project}-${var.environment}-mariadb"
+  engine                  = "mariadb"
+  engine_version          = "11.8"
   instance_class          = var.db_instance_class
   username                = var.db_username
   password                = var.db_password
@@ -30,6 +30,6 @@ resource "aws_db_instance" "mysql" {
   apply_immediately       = true
 
   tags = {
-    Name = "${var.project}-${var.environment}-mysql"
+    Name = "${var.project}-${var.environment}-mariadb"
   }
 }
