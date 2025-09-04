@@ -4,6 +4,8 @@ data "aws_availability_zones" "available" {
 
 locals {
   azs = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 2)
+  # Use a single NAT GW when only one EC2 app instance exists; otherwise one per AZ
+  single_nat_effective = (var.ec2_instance_count <= 1)
 }
 
 resource "aws_vpc" "main" {
@@ -49,17 +51,17 @@ resource "aws_subnet" "private" {
 
 resource "aws_eip" "nat" {
   # vytvoř EIP pro všechny public subnety, nebo jen pro "0" když je single NAT
-  for_each = { for k, s in aws_subnet.public : k => s if !var.single_nat_gateway || k == "0" }
+  for_each = { for k, s in aws_subnet.public : k => s if !local.single_nat_effective || k == "0" }
 
   domain = "vpc"
   tags = {
-    Name = var.single_nat_gateway ? "${var.project}-${var.environment}-nat-eip-0" : "${var.project}-${var.environment}-nat-eip-${each.key}"
+    Name = local.single_nat_effective ? "${var.project}-${var.environment}-nat-eip-0" : "${var.project}-${var.environment}-nat-eip-${each.key}"
   }
 }
 
 resource "aws_nat_gateway" "nat" {
   # stejné klíče jako u aws_eip.nat
-  for_each = { for k, s in aws_subnet.public : k => s if !var.single_nat_gateway || k == "0" }
+  for_each = { for k, s in aws_subnet.public : k => s if !local.single_nat_effective || k == "0" }
 
   allocation_id = aws_eip.nat[each.key].id
   subnet_id     = each.value.id
@@ -95,7 +97,7 @@ resource "aws_route_table" "private" {
 
   route {
     cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = var.single_nat_gateway ? aws_nat_gateway.nat["0"].id : aws_nat_gateway.nat[each.key].id
+  nat_gateway_id = local.single_nat_effective ? aws_nat_gateway.nat["0"].id : aws_nat_gateway.nat[each.key].id
   }
 
   tags = {
@@ -158,17 +160,7 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = [var.vpc_cidr]
   }
 
-  # When no ALB certificate is provided, HTTPS is exposed via NLB as TCP/443 passthrough
-  dynamic "ingress" {
-    for_each = var.alb_certificate_arn == null ? [1] : []
-    content {
-      description = "HTTPS passthrough from anywhere (via NLB)"
-      from_port   = 443
-      to_port     = 443
-      protocol    = "tcp"
-      cidr_blocks = ["0.0.0.0/0"]
-    }
-  }
+  # HTTPS is always handled by ALB; no NLB 443 passthrough needed
 
   dynamic "ingress" {
     for_each = toset([25, 465, 587, 143, 993, 110, 995])

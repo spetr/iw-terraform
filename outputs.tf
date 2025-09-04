@@ -59,11 +59,11 @@ output "bastion_instance_id" {
 }
 
 output "global_accelerator_dns" {
-  value = try(aws_globalaccelerator_accelerator.this[0].dns_name, null)
+  value = aws_globalaccelerator_accelerator.this.dns_name
 }
 
 output "global_accelerator_ips" {
-  value = try(aws_globalaccelerator_accelerator.this[0].ip_sets[0].ip_addresses, null)
+  value = aws_globalaccelerator_accelerator.this.ip_sets[0].ip_addresses
 }
 
 output "ses_email_identities" {

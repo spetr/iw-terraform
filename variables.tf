@@ -23,13 +23,6 @@ variable "aws_region" {
   default     = "eu-central-1"
 }
 
-variable "aws_profile" {
-  description = "AWS profile to deploy resources in."
-  type        = string
-  default     = null
-}
-
-
 ############################################
 # Networking (VPC & Subnets)
 ############################################
@@ -62,12 +55,6 @@ variable "availability_zones" {
   default     = []
 }
 
-# Use a single NAT Gateway in the first public subnet instead of one per AZ
-variable "single_nat_gateway" {
-  description = "When true, create only one NAT Gateway (in subnet index 0) and route all private subnets through it."
-  type        = bool
-  default     = false
-}
 
 ############################################
 # Compute (EC2) & Access
@@ -112,12 +99,7 @@ variable "enable_efs_archive" {
   default     = false
 }
 
-# Create EFS mount targets only in a single AZ (first private subnet) to reduce costs
-variable "efs_single_az_mount_targets" {
-  description = "When true, create EFS mount targets only in the first private subnet (single AZ)."
-  type        = bool
-  default     = false
-}
+## EFS mount targets are created in a single AZ automatically when ec2_instance_count <= 1
 
 # EFS throughput configuration
 # efs_throughput_mode options:
@@ -210,12 +192,7 @@ variable "db_storage_throughput" {
   default     = null
 }
 
-# Enable RDS Multi-AZ (creates a synchronous standby in another AZ).
-variable "db_multi_az" {
-  description = "Whether to enable RDS Multi-AZ for the MySQL instance."
-  type        = bool
-  default     = false
-}
+## RDS Multi-AZ is enabled automatically when ec2_instance_count > 1
 
 ############################################
 # Caching (ElastiCache Redis)
@@ -239,18 +216,16 @@ variable "redis_engine_version" {
 # Load Balancing / Certificates
 ############################################
 
-# Enable AWS Global Accelerator to get static anycast IPs shared for ALB and NLB.
-variable "enable_global_accelerator" {
-  description = "When true, create an AWS Global Accelerator in front of ALB and NLB to provide the same static public IPs."
-  type        = bool
-  default     = true
+variable "acm_import_cert_file" {
+  description = "Path to PEM certificate to import into ACM (e.g., scripts/service-certs/mail.example.com.crt)."
+  type        = string
+  default     = "scripts/service-certs/mail.example.com.crt"
 }
 
-# ACM certificate for HTTPS on ALB (if null, only HTTP is enabled).
-variable "alb_certificate_arn" {
-  description = "ACM certificate ARN for HTTPS on ALB."
+variable "acm_import_key_file" {
+  description = "Path to PEM private key to import into ACM (e.g., scripts/service-certs/mail.example.com.key)."
   type        = string
-  default     = null
+  default     = "scripts/service-certs/mail.example.com.key"
 }
 
 # Optional: attach AWS WAFv2 Web ACL to the ALB (REGIONAL scope only)
@@ -327,7 +302,7 @@ variable "ses_route53_zone_ids" {
 variable "create_bastion" {
   description = "Whether to create a small bastion host in a public subnet for troubleshooting."
   type        = bool
-  default     = false
+  default     = true
 }
 
 # EC2 instance type for the bastion.

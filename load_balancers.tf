@@ -2,15 +2,15 @@ locals {
   # Mail-related TCP ports handled by the NLB (SMTP/IMAP/POP3 family)
   mail_ports = [25, 465, 587, 143, 993, 110, 995] # smtp, smtps, submission, imap, imaps, pop3, pop3s
 
-  # Subset of mail ports that should use TLS termination on the NLB when a certificate is available
-  mail_tls_ports = [465, 993, 995] # smtps, imaps, pop3s
+  # TLS ports will always terminate on the NLB using ACM cert
+  mail_tls_ports = [465, 993, 995]
 
-  # Full list of NLB listener ports: mail ports plus optional 443 passthrough when no ALB certificate is configured
-  nlb_ports = var.alb_certificate_arn == null ? concat(local.mail_ports, [443]) : local.mail_ports
+  # NLB listeners cover only mail ports now (no 443 passthrough needed as ALB always has HTTPS)
+  nlb_ports = local.mail_ports
 
-  # Partition NLB ports into TCP (no TLS termination) and TLS (terminate at NLB when cert is present)
-  nlb_tcp_ports = [for p in local.nlb_ports : p if !(contains(local.mail_tls_ports, p) && var.alb_certificate_arn != null)]
-  nlb_tls_ports = [for p in local.nlb_ports : p if (contains(local.mail_tls_ports, p) && var.alb_certificate_arn != null)]
+  # Partition NLB ports into TCP (non-TLS) and TLS
+  nlb_tcp_ports = [for p in local.nlb_ports : p if !contains(local.mail_tls_ports, p)]
+  nlb_tls_ports = [for p in local.nlb_ports : p if contains(local.mail_tls_ports, p)]
 }
 
 # Application Load Balancer for HTTP/HTTPS
@@ -56,12 +56,11 @@ resource "aws_lb_listener" "http_redirect" {
 }
 
 resource "aws_lb_listener" "https" {
-  count             = var.alb_certificate_arn == null ? 0 : 1
   load_balancer_arn = aws_lb.alb.arn
   port              = 443
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.alb_certificate_arn
+  certificate_arn   = aws_acm_certificate.imported.arn
 
   default_action {
     type             = "forward"
@@ -199,7 +198,7 @@ resource "aws_lb_listener" "nlb_listener_tls" {
   port              = tonumber(each.key)
   protocol          = "TLS"
   ssl_policy        = "ELBSecurityPolicy-TLS13-1-2-2021-06"
-  certificate_arn   = var.alb_certificate_arn
+  certificate_arn   = aws_acm_certificate.imported.arn
 
   default_action {
     type             = "forward"
