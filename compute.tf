@@ -82,10 +82,10 @@ resource "aws_instance" "app" {
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
                 mkdir -p /opt/icewarp/archive
               fi
-              echo "${aws_efs_file_system.config.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/config efs _netdev,tls,noresvport,nfsvers=4.1,hard,timeo=600,retrans=2,rsize=1048576,wsize=1048576,noatime,nodiratime 0 0" >> /etc/fstab
-              echo "${aws_efs_file_system.data.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/mail efs _netdev,tls,noresvport,nfsvers=4.1,hard,timeo=600,retrans=2,rsize=1048576,wsize=1048576,noatime,nodiratime 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.config.id}:/ /opt/icewarp/config efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.data.id}:/ /opt/icewarp/mail efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
-                echo "${try(aws_efs_file_system.archive[0].id, "")}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/archive efs _netdev,tls,noresvport,nfsvers=4.1,hard,timeo=600,retrans=2,rsize=1048576,wsize=1048576,noatime,nodiratime 0 0" >> /etc/fstab
+                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /opt/icewarp/archive efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
               fi
               systemctl daemon-reload
               mount -a -t efs,nfs4
