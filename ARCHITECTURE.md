@@ -1,6 +1,6 @@
 # Architecture diagram
 
-Aktuální architektura: public a private subnets, Global Accelerator se statickými IP před ALB/NLB a NAT Gateway pro egress privátních instancí.
+Aktuální architektura: public a private subnets, public NLB s Elastic IP adresami, který předává porty 80/443 na interní ALB; NAT Gateway pro egress privátních instancí.
 
 ```mermaid
 flowchart LR
@@ -12,14 +12,13 @@ flowchart LR
       IGW["Internet Gateway"]
 
       subgraph Public["Public Subnets (AZ a,b)"]
-        GA["AWS Global Accelerator (Anycast IPs)"]
-        ALB["ALB (HTTP 80 → redirect to HTTPS 443; TLS via ACM)"]
-        NLB["NLB (TCP: 25,465,587,143,993,110,995; TLS on 465/993/995 via ACM)"]
+        NLB["Public NLB (EIP) - TCP 80/443 + mail ports"]
         NAT["NAT Gateway (per AZ or single by EC2 count)"]
         CVPN["Client VPN Endpoint"]
       end
 
       subgraph Private["Private Subnets (AZ a,b)"]
+        ALB["Internal ALB (HTTP 80 → redirect to HTTPS 443; TLS via ACM)"]
         EC2["EC2 App instance(s)"]
         Bastion["Bastion (SSM + optional SSH)"]
         EFS1["EFS (data)"]
@@ -30,15 +29,15 @@ flowchart LR
     end
   end
 
+  Internet <--> IGW
+
   %% Inbound from Internet
-  Internet --> IGW
-  IGW --> GA
-  GA -->|80/443| ALB
-  GA -->|25,465,587,143,993,110,995| NLB
+  IGW --> NLB
+  NLB -->|"TCP 80/443 passthrough"| ALB
+  NLB -->|"TCP mail ports (25,465,587,143,993,110,995)"| EC2
 
   %% Load balancer to EC2
   ALB -->|"HTTP 80 (behind HTTPS)"| EC2
-  NLB -->|"TCP mail ports"| EC2
 
   %% East-west inside VPC
   EC2 -- "NFS 2049" --> EFS1
@@ -47,15 +46,15 @@ flowchart LR
   EC2 -->|"Redis 6379"| Redis
 
   %% Egress
-  EC2 -->|egress| NAT --> IGW --> Internet
+  EC2 -->|egress| NAT --> IGW
 
   %% VPN access into VPC
   Client --> CVPN --> Private
 ```
 
 Legend
-- Public subnets: GA, ALB/NLB, NAT GW, Client VPN assoc.
-- Private subnets: EC2, RDS, Redis, EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
+- Public subnets: NLB (EIP), NAT GW, Client VPN assoc.
+- Private subnets: Internal ALB, EC2, RDS, Redis, EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
 - Egress z privátních EC2 jde přes NAT Gateway do Internetu.
 - S3 Gateway VPC Endpoint je připojen k private route tables.
 

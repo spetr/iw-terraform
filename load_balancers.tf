@@ -16,10 +16,10 @@ locals {
 # Application Load Balancer for HTTP/HTTPS
 resource "aws_lb" "alb" {
   name               = "${var.project}-${var.environment}-alb"
-  internal           = false
+  internal           = true
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [for s in aws_subnet.public : s.id]
+  subnets            = [for s in aws_subnet.private : s.id]
   idle_timeout       = 60
 }
 
@@ -171,11 +171,31 @@ resource "aws_wafv2_web_acl_association" "alb_basic" {
 }
 
 # Network Load Balancer for TCP ports (mail protocols)
+resource "aws_eip" "nlb" {
+  # Allocate one EIP per public subnet to attach to the NLB
+  for_each = aws_subnet.public
+  domain   = "vpc"
+  tags = {
+    Name = "${var.project}-${var.environment}-nlb-eip-${each.key}"
+  }
+}
+
 resource "aws_lb" "nlb" {
-  name               = "${var.project}-${var.environment}-nlb"
+  name               = "${var.project}-${var.environment}-nlb-eip"
   internal           = false
   load_balancer_type = "network"
-  subnets            = [for s in aws_subnet.public : s.id]
+
+  dynamic "subnet_mapping" {
+    for_each = aws_subnet.public
+    content {
+      subnet_id     = subnet_mapping.value.id
+      allocation_id = aws_eip.nlb[subnet_mapping.key].id
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
@@ -216,6 +236,57 @@ resource "aws_lb_listener" "nlb_listener_tls" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.nlb_tg[each.key].arn
+  }
+}
+
+# NLB → ALB forwarding for web ports (80/443) via TCP passthrough
+resource "aws_lb_target_group" "nlb_to_alb_80" {
+  name        = "${var.project}-${var.environment}-nlb-alb-80"
+  port        = 80
+  protocol    = "TCP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "alb"
+}
+
+resource "aws_lb_target_group_attachment" "nlb_to_alb_80" {
+  target_group_arn = aws_lb_target_group.nlb_to_alb_80.arn
+  target_id        = aws_lb.alb.arn
+  port             = 80
+}
+
+resource "aws_lb_listener" "nlb_http_to_alb" {
+  load_balancer_arn = aws_lb.nlb.arn
+  port              = 80
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nlb_to_alb_80.arn
+  }
+}
+
+resource "aws_lb_target_group" "nlb_to_alb_443" {
+  name        = "${var.project}-${var.environment}-nlb-alb-443"
+  port        = 443
+  protocol    = "TCP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "alb"
+}
+
+resource "aws_lb_target_group_attachment" "nlb_to_alb_443" {
+  target_group_arn = aws_lb_target_group.nlb_to_alb_443.arn
+  target_id        = aws_lb.alb.arn
+  port             = 443
+}
+
+resource "aws_lb_listener" "nlb_https_to_alb" {
+  load_balancer_arn = aws_lb.nlb.arn
+  port              = 443
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nlb_to_alb_443.arn
   }
 }
 

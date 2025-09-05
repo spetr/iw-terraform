@@ -56,7 +56,7 @@ resource "aws_instance" "app" {
               systemctl enable --now sshd || true
 
               # Set and preserve hostname to match the instance Name tag
-              HOSTNAME="${var.project}-${var.environment}-app-${count.index}"
+              HOSTNAME="${var.project}-${var.environment}-app-${count.index + 1}"
               hostnamectl set-hostname "$HOSTNAME"
               mkdir -p /etc/cloud/cloud.cfg.d
               printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
@@ -64,18 +64,28 @@ resource "aws_instance" "app" {
 
               # Simple web app placeholder
               dnf install -y nginx
-              echo "<h1>${var.project}-${var.environment} EC2 up (${count.index})</h1>" > /usr/share/nginx/html/index.html
+              echo "<h1>${var.project}-${var.environment}-app-${count.index + 1} EC2 UP</h1>" > /usr/share/nginx/html/index.html
+              cat >/etc/nginx/conf.d/realip.conf <<'NGINX'
+              # X-Forwarded-For handling from trusted proxies (private subnets)
+              real_ip_header X-Forwarded-For;
+              real_ip_recursive on;
+              NGINX
+              for cidr in ${join(" ", var.private_subnets)}; do
+                echo "set_real_ip_from $cidr;" >> /etc/nginx/conf.d/realip.conf
+              done
               systemctl enable --now nginx
+
+              nginx -t && systemctl reload nginx || true
 
               mkdir -p /opt/icewarp/config
               mkdir -p /opt/icewarp/mail
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
                 mkdir -p /opt/icewarp/archive
               fi
-              echo "${aws_efs_file_system.config.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/config efs _netdev,tls,nconnect=4,noresvport,nfsvers=4.1,noatime,nodiratime,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
-              echo "${aws_efs_file_system.data.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/mail efs _netdev,tls,nconnect=16,noresvport,nfsvers=4.1,noatime,nodiratime,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.config.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/config efs _netdev,tls,noresvport,nfsvers=4.1,hard,timeo=600,retrans=2,rsize=1048576,wsize=1048576,noatime,nodiratime 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.data.id}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/mail efs _netdev,tls,noresvport,nfsvers=4.1,hard,timeo=600,retrans=2,rsize=1048576,wsize=1048576,noatime,nodiratime 0 0" >> /etc/fstab
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
-                echo "${try(aws_efs_file_system.archive[0].id, "")}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/archive efs _netdev,tls,nconnect=8,noresvport,nfsvers=4.1,noatime,nodiratime,rsize=1048576,wsize=1048576 0 0" >> /etc/fstab
+                echo "${try(aws_efs_file_system.archive[0].id, "")}.efs.${var.aws_region}.amazonaws.com:/ /opt/icewarp/archive efs _netdev,tls,noresvport,nfsvers=4.1,hard,timeo=600,retrans=2,rsize=1048576,wsize=1048576,noatime,nodiratime 0 0" >> /etc/fstab
               fi
               systemctl daemon-reload
               mount -a -t efs,nfs4
