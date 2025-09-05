@@ -192,10 +192,6 @@ resource "aws_lb" "nlb" {
       allocation_id = aws_eip.nlb[subnet_mapping.key].id
     }
   }
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
