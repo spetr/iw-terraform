@@ -93,7 +93,7 @@ resource "aws_wafv2_web_acl_association" "alb" {
 resource "aws_wafv2_web_acl" "basic" {
   count = var.waf_web_acl_arn == null && var.enable_waf_basic ? 1 : 0
   name        = "${var.project}-${var.environment}-waf-basic"
-  description = "Basic WAF (REGIONAL) with AWS managed rule groups"
+  description = "Basic WAF REGIONAL with AWS managed rule groups"
   scope       = "REGIONAL"
 
   default_action {

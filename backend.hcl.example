@@ -1,0 +1,30 @@
+# Copy to backend.hcl and adjust values
+
+# Required
+bucket         = "my-tfstate-bucket-name"     # S3 bucket for Terraform state
+key            = "iw/dev/terraform.tfstate"   # Path/key within bucket
+region         = "eu-central-1"               # Region of the bucket
+
+# Strongly recommended: state locking via DynamoDB
+# Create a table with primary key "LockID" (string)
+dynamodb_table = "terraform-locks"
+
+# Optional: choose an AWS named profile for backend operations
+# profile = "default"
+
+# Recommended encryption
+encrypt        = true
+# Optionally use a specific KMS key for SSE-KMS
+# kms_key_id   = "arn:aws:kms:...:key/..."
+
+# Optional: S3 Object Lock default retention (delete protection)
+# If the bucket is created by init.sh, it will be created with Object Lock enabled
+# and default retention will be applied. If the bucket already exists, init.sh
+# will try to set default retention (only possible if Object Lock is already enabled)
+# and will add a bucket policy requiring MFA for object deletes.
+object_lock_mode           = "GOVERNANCE"    # GOVERNANCE | COMPLIANCE
+object_lock_retention_days = "30"            # Number of days to retain
+
+# Notes:
+# - The S3 bucket and DynamoDB table should exist before running `terraform init`.
+# - You can bootstrap them manually or via a separate minimal Terraform stack.

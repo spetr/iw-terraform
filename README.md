@@ -70,6 +70,51 @@ terraform plan
 terraform apply
 ```
 
+### Remote State (S3 + DynamoDB)
+
+Pro produkční použití doporučuji ukládat Terraform state do S3 a zamykání přes DynamoDB.
+
+1) Vytvořte S3 bucket a DynamoDB tabulku (jednorázově):
+
+   - S3 bucket (zapněte versioning):
+     - Name: např. `my-tfstate-bucket-name`
+     - Region: např. `eu-central-1`
+     - Versioning: Enabled
+   - DynamoDB table pro zámky:
+     - Name: `terraform-locks`
+     - Partition key: `LockID` (String)
+
+   Příklad přes AWS CLI:
+   ```
+   aws s3api create-bucket --bucket my-tfstate-bucket-name --region eu-central-1 \
+     --create-bucket-configuration LocationConstraint=eu-central-1
+   aws s3api put-bucket-versioning --bucket my-tfstate-bucket-name \
+     --versioning-configuration Status=Enabled
+   aws dynamodb create-table --table-name terraform-locks \
+     --attribute-definitions AttributeName=LockID,AttributeType=S \
+     --key-schema AttributeName=LockID,KeyType=HASH \
+     --billing-mode PAY_PER_REQUEST --region eu-central-1
+   ```
+
+2) Zkopírujte `backend.hcl.example` → `backend.hcl` a vyplňte hodnoty:
+   - `bucket` = jméno vašeho S3 bucketu
+   - `key` = cesta k souboru se stavem, např. `iw/dev/terraform.tfstate`
+   - `region` = region bucketu
+   - `dynamodb_table` = `terraform-locks`
+   - volitelně `profile`, `kms_key_id`
+
+3) Inicializace s migrací stavu:
+   - `./init.sh`
+   - Skript detekuje `backend.hcl`, spustí `terraform init -reconfigure -migrate-state` a přesune lokální state do S3.
+
+4) Ověření:
+   - `terraform state list` – kontrola, že načítá vzdálený stav
+   - ve S3 uvidíte `key` s verzováním; v DynamoDB záznamy zámků při běhu `plan/apply`.
+
+Poznámky:
+- `backend.hcl` je v `.gitignore` – necommitujte přístupové či environment‑specifické údaje.
+- Pokud měníte backend nebo cestu `key`, znovu spusťte `./init.sh` (používá `-reconfigure`).
+
 ## Notes
 - AMI: Uses Amazon Linux 2023 by default (via SSM Parameter Store). No Marketplace subscription needed.
 - Private EC2 instances have Internet egress via NAT Gateways in each public subnet (HA egress).
