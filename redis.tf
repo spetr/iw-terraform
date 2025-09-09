@@ -23,7 +23,8 @@ resource "aws_elasticache_cluster" "redis" {
 # When app instances are spread across AZs, deploy Redis as HA (primary + replica) across both AZs
 resource "aws_elasticache_replication_group" "redis" {
   count                         = var.app_instance_count > 1 ? 1 : 0
-  replication_group_id          = "${var.project}-${var.environment}-redis"
+  # Use a distinct identifier to avoid clashes with the single-node cluster identifier
+  replication_group_id          = "${var.project}-${var.environment}-redis-rg"
   description                   = "${var.project}-${var.environment} Redis (Multi-AZ)"
   engine                        = "redis"
   engine_version                = var.redis_engine_version
