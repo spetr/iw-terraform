@@ -172,8 +172,8 @@ resource "aws_wafv2_web_acl_association" "alb_basic" {
 
 # Network Load Balancer for TCP ports (mail protocols)
 resource "aws_eip" "nlb" {
-  # Allocate one EIP per public subnet to attach to the NLB (use stable string keys)
-  for_each = toset(keys(aws_subnet.public))
+  # Allocate one EIP per public subnet to attach to the NLB (keep keys aligned with subnets)
+  for_each = aws_subnet.public
   domain   = "vpc"
   tags = {
     Name = "${var.project}-${var.environment}-nlb-eip-${each.key}"
@@ -187,11 +187,12 @@ resource "aws_lb" "nlb" {
   ip_address_type    = "dualstack"
 
   dynamic "subnet_mapping" {
-    for_each = toset(keys(aws_subnet.public))
+    # Iterate over the actual public subnet map to ensure subnet_id is always set
+    for_each = aws_subnet.public
     content {
-      subnet_id     = aws_subnet.public[subnet_mapping.value].id
-      allocation_id = aws_eip.nlb[subnet_mapping.value].id
-      ipv6_address  = cidrhost(aws_subnet.public[subnet_mapping.value].ipv6_cidr_block, 10)
+      subnet_id     = subnet_mapping.value.id
+      allocation_id = aws_eip.nlb[subnet_mapping.key].id
+      # Let AWS auto-assign IPv6; only pin IPv4 via EIP
     }
   }
 }
