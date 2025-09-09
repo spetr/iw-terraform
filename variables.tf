@@ -41,9 +41,9 @@ variable "public_subnets" {
   default     = ["10.0.0.0/24", "10.0.1.0/24"]
 }
 
-# CIDR list for private subnets (EC2, RDS, Redis, EFS; egress via NAT).
+# CIDR list for private subnets (EC2, RDS, Valkey, EFS; egress via NAT).
 variable "private_subnets" {
-  description = "List of private subnet CIDRs (no public IPs; egress via NAT). Hosts EC2, RDS, Redis, EFS."
+  description = "List of private subnet CIDRs (no public IPs; egress via NAT). Hosts EC2, RDS, Valkey, EFS."
   type        = list(string)
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
@@ -60,16 +60,16 @@ variable "availability_zones" {
 # Compute (EC2) & Access
 ############################################
 
-# App instance type for EC2 app instances (e.g., t3.micro).
+# App instance type for EC2 app instances (e.g., t3.small).
 variable "app_instance_type" {
   description = "EC2 instance type for App instances (behind ALB)."
   type        = string
-  default     = "t3.micro"
+  default     = "t3.small"
 }
 
 # Number of app EC2 instances (spread across private subnets/AZs).
 variable "app_instance_count" {
-  description = "Number of App EC2 instances. Affects HA (NAT per‑AZ, EFS MTs, RDS Multi‑AZ, Redis App HA)."
+  description = "Number of App EC2 instances. Affects HA (NAT per‑AZ, EFS MTs, RDS Multi‑AZ, Valkey App HA)."
   type        = number
   default     = 1
 }
@@ -78,7 +78,7 @@ variable "app_instance_count" {
 variable "fulltext_instance_type" {
   description = "Instance type for the Fulltext EC2 instance(s)."
   type        = string
-  default     = "t3.micro"
+  default     = "t4g.small"
 }
 
 # EBS volume size (GiB) for the fulltext EC2 instance.
@@ -94,7 +94,7 @@ variable "fulltext_ebs_size_gb" {
 
 # Number of dedicated fulltext EC2 instances.
 variable "fulltext_instance_count" {
-  description = "Number of Fulltext EC2 instances (each gets its own EBS). When >= 2, a dedicated HA Redis for Fulltext is created."
+  description = "Number of Fulltext EC2 instances (each gets its own EBS). When >= 2, a dedicated HA Valkey for Fulltext is created."
   type        = number
   default     = 0
 }
@@ -179,11 +179,11 @@ variable "db_monitoring_interval" {
   }
 }
 
-# RDS instance class (e.g., db.t3.micro).
+# RDS instance class (e.g., db.t4g.small).
 variable "db_instance_class" {
   description = "RDS instance class."
   type        = string
-  default     = "db.t3.micro"
+  default     = "db.t4g.small"
 }
 
 # Initial RDS storage size in GB.
@@ -232,33 +232,33 @@ variable "db_storage_throughput" {
 ## RDS Multi-AZ is enabled automatically when app_instance_count > 1
 
 ############################################
-# Caching (ElastiCache Redis)
+# Caching (ElastiCache Valkey)
 ############################################
 
-# App Redis
-variable "redis_app_node_type" {
-  description = "ElastiCache node type for App Redis (single node for 1 app; HA replication group when app_instance_count > 1)."
+# App Valkey
+variable "valkey_app_node_type" {
+  description = "ElastiCache node type for App Valkey (single node for 1 app; HA replication group when app_instance_count > 1)."
   type        = string
-  default     = "cache.t3.micro"
+  default     = "cache.t4g.micro"
 }
 
-variable "redis_app_engine_version" {
-  description = "Redis engine version for App Redis."
+variable "valkey_app_engine_version" {
+  description = "Valkey engine version for App cache (e.g., 8.1)."
   type        = string
-  default     = "7.0"
+  default     = "8.1"
 }
 
-# Fulltext Redis
-variable "redis_fulltext_node_type" {
-  description = "ElastiCache node type for Fulltext Redis (created only when fulltext_instance_count >= 2; Multi‑AZ replication group)."
+# Fulltext Valkey
+variable "valkey_fulltext_node_type" {
+  description = "ElastiCache node type for Fulltext Valkey (created only when fulltext_instance_count >= 2; Multi‑AZ replication group)."
   type        = string
-  default     = "cache.t3.small"
+  default     = "cache.t4g.small"
 }
 
-variable "redis_fulltext_engine_version" {
-  description = "Redis engine version for Fulltext Redis."
+variable "valkey_fulltext_engine_version" {
+  description = "Valkey engine version for Fulltext cache (e.g., 8.1)."
   type        = string
-  default     = "7.0"
+  default     = "8.1"
 }
 
 ############################################
@@ -356,9 +356,9 @@ variable "create_bastion" {
 
 # EC2 instance type for the bastion.
 variable "bastion_instance_type" {
-  description = "Bastion EC2 instance type (SSM-only bastion)."
+  description = "Bastion EC2 instance type (SSM-only bastion). ARM64 (Graviton) recommended, e.g., t4g.micro."
   type        = string
-  default     = "t3.micro"
+  default     = "t4g.micro"
 }
 
 ############################################

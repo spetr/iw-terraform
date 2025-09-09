@@ -248,13 +248,13 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
-resource "aws_security_group" "redis_sg" {
-  name        = "${var.project}-${var.environment}-redis"
-  description = "Redis SG"
+resource "aws_security_group" "valkey_sg" {
+  name        = "${var.project}-${var.environment}-valkey"
+  description = "Valkey SG"
   vpc_id      = aws_vpc.main.id
 
   ingress {
-    description     = "Redis from EC2"
+    description     = "Valkey from EC2"
     from_port       = 6379
     to_port         = 6379
     protocol        = "tcp"

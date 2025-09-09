@@ -5,13 +5,13 @@ Tento dokument popisuje, jak se připojit k jednotlivým službám připojeným 
 ## Předpoklady
 - Infrastruktura je nasazená (`terraform apply`).
 - Máte nastavené AWS přihlašovací údaje (profil/region).
-- Pro soukromé endpointy (RDS/Redis/EFS) jste v síti VPC (např. přes Client VPN nebo z EC2).
+- Pro soukromé endpointy (RDS/Valkey/EFS) jste v síti VPC (např. přes Client VPN nebo z EC2).
 
 Užitečné výstupy z Terraformu:
 - ALB DNS: `terraform output -raw alb_dns_name`
 - NLB DNS: `terraform output -raw nlb_dns_name`
 - RDS endpoint: `terraform output -raw rds_endpoint`
-- Redis endpoint: `terraform output -raw redis_endpoint`
+- Valkey endpoint: `terraform output -raw valkey_endpoint`
 - EFS (data): `terraform output -raw efs_data_id`
 - EFS (config): `terraform output -raw efs_config_id`
 
@@ -85,12 +85,12 @@ Dostupnost (AZ)
 
 ---
 
-## ElastiCache Redis (privátní)
+## ElastiCache Valkey (privátní)
 - Endpoint je neveřejný; přístup pouze z VPC (EC2/VPN).
 
 Příklad připojení
 ```bash
-redis-cli -h "$(terraform output -raw redis_endpoint)" -p 6379 ping
+redis-cli -h "$(terraform output -raw valkey_endpoint)" -p 6379 ping
 ```
 
 Dostupnost (AZ)
@@ -123,7 +123,7 @@ Dostupnost (AZ)
 
 ## Client VPN
 - Přístup do VPC z klientského zařízení. Vyžaduje serverový certifikát (ACM) a klientský root CA (nebo SAML autentizaci).
-- Po připojení je dostupná privátní síť (EC2, RDS, Redis, EFS) dle SG/route pravidel.
+- Po připojení je dostupná privátní síť (EC2, RDS, Valkey, EFS) dle SG/route pravidel.
 
 Dostupnost (AZ)
 - Endpoint je asociován do public subnets v obou AZ, takže připojení zůstává dostupné i při výpadku jedné AZ.
@@ -173,7 +173,7 @@ Požadavky účtu (SSM)
 
 ## Tipy pro produkci
 - RDS: zapnout Multi‑AZ, zvýšit retention a parametrické skupiny dle potřeby.
-- Redis: použít Replication Group + Multi‑AZ a parametry (AOF/RDB) dle SLA.
+- Valkey: použít Replication Group + Multi‑AZ a parametry (AOF/RDB) dle SLA.
 - EC2: Auto Scaling Group + Launch Template + health checks ALB.
 - SG a NACL: zpřísnit zdrojové rozsahy, audit.
 - Monitoring: CloudWatch Alarms, VPC Flow Logs, ELB access logs.
@@ -184,4 +184,4 @@ Požadavky účtu (SSM)
 - DNS/LB: `dig +short $(terraform output -raw alb_dns_name)`
 - Síť: `scripts/list-ips.sh --just-ips` vypíše všechny IP ve VPC.
 - EFS: `mount | grep efs`, `systemctl status` pro služby, `aws efs describe-mount-targets`.
-- RDS/Redis: ověřit SG, DNS, směrování (Client VPN), případně EC2 jako bastion.
+- RDS/Valkey: ověřit SG, DNS, směrování (Client VPN), případně EC2 jako bastion.

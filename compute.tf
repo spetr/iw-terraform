@@ -3,6 +3,11 @@ data "aws_ssm_parameter" "al2023_ami" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
 }
 
+data "aws_ssm_parameter" "al2023_ami_arm64" {
+  # Amazon Linux 2023 (ARM64) latest AMI ID via SSM Parameter Store
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-arm64"
+}
+
 resource "aws_iam_role" "ec2_ssm_role" {
   name = "${var.project}-${var.environment}-ec2-ssm-role"
   assume_role_policy = jsonencode({
@@ -135,7 +140,7 @@ resource "aws_security_group" "bastion_sg" {
 
 resource "aws_instance" "bastion" {
   count                  = var.create_bastion ? 1 : 0
-  ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
+  ami                    = data.aws_ssm_parameter.al2023_ami_arm64.value
   instance_type          = var.bastion_instance_type
   subnet_id              = local.private_subnet_ids[0]
   private_ip             = cidrhost(var.private_subnets[0], 10)

@@ -34,12 +34,12 @@ output "rds_endpoint" {
   value = aws_db_instance.mysql.address
 }
 
-output "redis_endpoint" {
-  value = try(aws_elasticache_replication_group.redis_app[0].primary_endpoint_address, aws_elasticache_cluster.redis_app[0].cache_nodes[0].address)
+output "valkey_endpoint" {
+  value = try(aws_elasticache_replication_group.valkey_app[0].primary_endpoint_address, aws_elasticache_cluster.valkey_app[0].cache_nodes[0].address)
 }
 
-output "redis_fulltext_endpoint" {
-  value = try(aws_elasticache_replication_group.redis_fulltext[0].primary_endpoint_address, null)
+output "valkey_fulltext_endpoint" {
+  value = try(aws_elasticache_replication_group.valkey_fulltext[0].primary_endpoint_address, null)
 }
 
 output "efs_data_id" {
