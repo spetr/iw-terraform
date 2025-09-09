@@ -6,6 +6,24 @@ resource "aws_db_subnet_group" "this" {
   }
 }
 
+# IAM role for RDS Enhanced Monitoring
+resource "aws_iam_role" "rds_enhanced_monitoring" {
+  name = "${var.project}-${var.environment}-rds-enhanced-monitoring"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = { Service = "monitoring.rds.amazonaws.com" },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
+  role       = aws_iam_role.rds_enhanced_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
 resource "aws_db_instance" "mysql" {
   identifier              = "${var.project}-${var.environment}-mariadb"
   engine                  = "mariadb"
@@ -27,6 +45,10 @@ resource "aws_db_instance" "mysql" {
   storage_encrypted       = true
   backup_retention_period = 7
   apply_immediately       = true
+
+  # Enhanced Monitoring
+  monitoring_interval = var.db_monitoring_interval
+  monitoring_role_arn = var.db_monitoring_interval == 0 ? null : aws_iam_role.rds_enhanced_monitoring.arn
 
   tags = {
     Name = "${var.project}-${var.environment}-mariadb"

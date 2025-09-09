@@ -167,6 +167,18 @@ variable "db_password" {
   sensitive   = true
 }
 
+# Enhanced Monitoring interval for RDS (seconds). Set 0 to disable.
+# Allowed values: 0, 1, 5, 10, 15, 30, 60
+variable "db_monitoring_interval" {
+  description = "RDS/MariaDB Enhanced Monitoring interval in seconds (0 disables)."
+  type        = number
+  default     = 60
+  validation {
+    condition     = contains([0, 1, 5, 10, 15, 30, 60], var.db_monitoring_interval)
+    error_message = "db_monitoring_interval must be one of: 0, 1, 5, 10, 15, 30, 60."
+  }
+}
+
 # RDS instance class (e.g., db.t3.micro).
 variable "db_instance_class" {
   description = "RDS instance class."
