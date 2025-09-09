@@ -17,7 +17,7 @@ resource "aws_elasticache_cluster" "redis_app" {
   security_group_ids  = [aws_security_group.redis_sg.id]
 
   tags = {
-    Name = "${var.project}-${var.environment}-redis"
+    Name = "${var.project}-${var.environment}-redis-app"
   }
 }
 
@@ -25,7 +25,7 @@ resource "aws_elasticache_cluster" "redis_app" {
 resource "aws_elasticache_replication_group" "redis_app" {
   count                         = var.app_instance_count > 1 ? 1 : 0
   # Use a distinct identifier to avoid clashes with the single-node cluster identifier
-  replication_group_id          = "${var.project}-${var.environment}-redis-rg"
+  replication_group_id          = "${var.project}-${var.environment}-redis-app-rg"
   description                   = "${var.project}-${var.environment} Redis (Multi-AZ)"
   engine                        = "redis"
   engine_version                = var.redis_app_engine_version
