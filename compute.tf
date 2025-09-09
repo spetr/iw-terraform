@@ -77,15 +77,15 @@ resource "aws_instance" "app" {
 
               nginx -t && systemctl reload nginx || true
 
-              mkdir -p /opt/icewarp/config
-              mkdir -p /opt/icewarp/mail
+              mkdir -p /mnt/data/config
+              mkdir -p /mnt/data/mail
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
-                mkdir -p /opt/icewarp/archive
+                mkdir -p /mnt/data/archive
               fi
-              echo "${aws_efs_file_system.config.id}:/ /opt/icewarp/config efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
-              echo "${aws_efs_file_system.data.id}:/ /opt/icewarp/mail efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.config.id}:/ /mnt/data/config efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
+              echo "${aws_efs_file_system.data.id}:/ /mnt/data/mail efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
-                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /opt/icewarp/archive efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
+                echo "${try(aws_efs_file_system.archive[0].id, "")}:/ /mnt/data/archive efs _netdev,tls,noatime,nodiratime 0 0" >> /etc/fstab
               fi
               systemctl daemon-reload
               mount -a -t efs,nfs4
