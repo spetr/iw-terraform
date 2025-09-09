@@ -30,6 +30,36 @@ ensure_aws_cli() {
   fi
 }
 
+# Ensure bucket is not publicly accessible (S3 Public Access Block + private ACL)
+ensure_bucket_not_public() {
+  local bucket="$1" region="$2" profile_opt="$3"
+  echo "Enforcing S3 Public Access Block on bucket: $bucket"
+  aws $profile_opt s3api put-public-access-block --bucket "$bucket" --region "$region" \
+    --public-access-block-configuration '{
+      "BlockPublicAcls": true,
+      "IgnorePublicAcls": true,
+      "BlockPublicPolicy": true,
+      "RestrictPublicBuckets": true
+    }'
+
+  # Prefer disabling ACLs entirely using Object Ownership = BucketOwnerEnforced
+  echo "Enforcing S3 Object Ownership (BucketOwnerEnforced) on bucket: $bucket"
+  aws $profile_opt s3api put-bucket-ownership-controls --bucket "$bucket" --region "$region" \
+    --ownership-controls 'Rules=[{ObjectOwnership=BucketOwnerEnforced}]' >/dev/null 2>&1 || true
+
+  # If ACLs are still enabled on an older bucket, set ACL to private as a best-effort
+  if aws $profile_opt s3api get-bucket-ownership-controls --bucket "$bucket" --region "$region" \
+       --query 'OwnershipControls.Rules[0].ObjectOwnership' --output text 2>/dev/null | grep -q "BucketOwnerEnforced"; then
+    echo "ACLs are disabled (BucketOwnerEnforced); skipping ACL change."
+  else
+    echo "Setting bucket ACL to private (legacy bucket): $bucket"
+    aws $profile_opt s3api put-bucket-acl --bucket "$bucket" --acl private --region "$region" >/dev/null 2>&1 || true
+  fi
+
+  echo "Current Public Access Block configuration:"
+  aws $profile_opt s3api get-public-access-block --bucket "$bucket" --region "$region" || true
+}
+
 create_s3_bucket_if_needed() {
   local bucket="$1" region="$2" profile_opt="$3"
 
@@ -81,11 +111,10 @@ ensure_bucket_delete_protection() {
     echo "Bucket already has a policy; skipping automatic policy update. Consider adding an MFA delete rule for $key."
   else
     echo "Applying MFA delete protection bucket policy for key prefix: $key"
-    # Escape slashes in key for JSON
     local key_arn_single="arn:aws:s3:::${bucket}/${key}"
     local key_arn_prefix="arn:aws:s3:::${bucket}/${key%/}*"
-    # Build and apply policy
-    read -r -d '' POLICY_JSON <<POLICY || true
+    # Build policy JSON and apply
+    POLICY_JSON=$(cat <<EOF
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -107,7 +136,8 @@ ensure_bucket_delete_protection() {
     }
   ]
 }
-POLICY
+EOF
+)
     aws $profile_opt s3api put-bucket-policy --bucket "$bucket" --region "$region" --policy "${POLICY_JSON}"
   fi
 }
@@ -167,6 +197,9 @@ if [[ -f backend.hcl ]]; then
 
   # Ensure deletion protection for Terraform state in S3
   ensure_bucket_delete_protection "$bucket" "$region" "$key" "$profile_opt" "${object_lock_mode:-}" "${object_lock_retention_days:-}"
+
+  # Ensure the bucket is not publicly accessible
+  ensure_bucket_not_public "$bucket" "$region" "$profile_opt"
 
   echo "Initializing Terraform with remote backend (S3)"
 
