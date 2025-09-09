@@ -116,8 +116,8 @@ sudo mount -t efs -o tls $(terraform output -raw efs_archive_id):/ /mnt/archive
 ```
 
 Dostupnost (AZ)
-- Při `ec2_instance_count <= 1`: EFS má mount target pouze v první private subnet (single AZ, nižší náklady).
-- Při `ec2_instance_count > 1`: EFS má mount target v každé private subnet (v každé AZ). EFS mount helper automaticky volí lokální MT v téže AZ; při výpadku přejde na jiný MT.
+- Při `app_instance_count <= 1`: EFS má mount target pouze v první private subnet (single AZ, nižší náklady).
+- Při `app_instance_count > 1`: EFS má mount target v každé private subnet (v každé AZ). EFS mount helper automaticky volí lokální MT v téže AZ; při výpadku přejde na jiný MT.
 
 ---
 
@@ -166,8 +166,8 @@ Požadavky účtu (SSM)
 ---
 
 ## Egress z privátní sítě
-- Při `ec2_instance_count <= 1`: jedna NAT Gateway v první public subnet; všechny private subnets routují přes ni (nižší náklady).
-- Při `ec2_instance_count > 1`: NAT Gateway v každé public subnet (per‑AZ, HA egress) a matching routování.
+- Při `app_instance_count <= 1`: jedna NAT Gateway v první public subnet; všechny private subnets routují přes ni (nižší náklady).
+- Při `app_instance_count > 1`: NAT Gateway v každé public subnet (per‑AZ, HA egress) a matching routování.
 
 ---
 

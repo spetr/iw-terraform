@@ -37,8 +37,8 @@ client_vpn_certificate_arn = "arn:aws:acm:..."
 db_password           = "ChangeMe123!"
 # Optional SSH key pair name
 # ec2_key_name        = "my-key"
-# Scale EC2 instances
-ec2_instance_count    = 2
+# Scale EC2 app instances
+app_instance_count    = 2
 
 # Optional SES configuration
 # enable_ses            = true

@@ -20,11 +20,13 @@ flowchart LR
       subgraph Private["Private Subnets (AZ a,b)"]
         ALB["Internal ALB (HTTP 80 → redirect to HTTPS 443; TLS via ACM)"]
         EC2["EC2 App instance(s)"]
+        FT["Fulltext EC2 instance(s)"]
         Bastion["Bastion (SSM + optional SSH)"]
         EFS1["EFS (data)"]
         EFS2["EFS (config)"]
         RDS[("RDS MariaDB")]
         Redis[("ElastiCache Redis")]
+        EBSFT["EBS Volume(s) for Fulltext"]
       end
     end
   end
@@ -44,9 +46,13 @@ flowchart LR
   EC2 -- "NFS 2049" --> EFS2
   EC2 -->|"MariaDB/MySQL 3306"| RDS
   EC2 -->|"Redis 6379"| Redis
+  EC2 -->|"HTTP 80/443"| FT
 
   %% Egress
   EC2 -->|egress| NAT --> IGW
+
+  %% Fulltext storage attachment
+  FT -- "/dev/sdf" --> EBSFT
 
   %% VPN access into VPC
   Client --> CVPN --> Private
@@ -60,8 +66,8 @@ Legend
 
 Notes
 - CIDR pro `public_subnets` a `private_subnets` jsou v `variables.tf`.
-- NAT pravidlo: když `ec2_instance_count <= 1`, vytvoří se jedna NAT GW v public[0]; když je `ec2_instance_count > 1`, vytvoří se NAT GW v každé public subnet a private RTs routují per‑AZ.
-- EFS MT pravidlo: když `ec2_instance_count <= 1`, EFS má mount target jen v první private subnet; jinak v každé private subnet (per‑AZ).
+- NAT pravidlo: když `app_instance_count <= 1`, vytvoří se jedna NAT GW v public[0]; když je `app_instance_count > 1`, vytvoří se NAT GW v každé public subnet a private RTs routují per‑AZ.
+- EFS MT pravidlo: když `app_instance_count <= 1`, EFS má mount target jen v první private subnet; jinak v každé private subnet (per‑AZ).
 - Security Groups definované v `network.tf` omezují provoz; ICMP v rámci VPC je povolen pro diagnostiku.
  - SSH přístup: když `enable_ssh_access = true`, otevře se port 22 v SG pro EC2 (`allowed_ssh_cidr`) a volitelně i pro bastion SG.
  - Hostname: EC2 app i bastion si při bootstrapu nastaví hostname podle Name tagu a zachovají jej napříč rebooty.

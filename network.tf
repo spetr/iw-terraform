@@ -5,7 +5,7 @@ data "aws_availability_zones" "available" {
 locals {
   azs = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 2)
   # Use a single NAT GW when only one EC2 app instance exists; otherwise one per AZ
-  single_nat_effective = (var.ec2_instance_count <= 1)
+  single_nat_effective = (var.app_instance_count <= 1)
 }
 
 resource "aws_vpc" "main" {

@@ -60,18 +60,43 @@ variable "availability_zones" {
 # Compute (EC2) & Access
 ############################################
 
-# EC2 instance type for app instances (e.g., t3.micro).
-variable "ec2_instance_type" {
-  description = "EC2 instance type."
+# App instance type for EC2 app instances (e.g., t3.micro).
+variable "app_instance_type" {
+  description = "EC2 instance type for app instances."
   type        = string
   default     = "t3.micro"
 }
 
 # Number of app EC2 instances (spread across private subnets/AZs).
-variable "ec2_instance_count" {
-  description = "Number of EC2 instances to launch."
+variable "app_instance_count" {
+  description = "Number of EC2 app instances to launch."
   type        = number
   default     = 1
+}
+
+# Instance type for the dedicated fulltext EC2.
+variable "fulltext_instance_type" {
+  description = "Instance type for the fulltext EC2 instance."
+  type        = string
+  default     = "t3.micro"
+}
+
+# EBS volume size (GiB) for the fulltext EC2 instance.
+variable "fulltext_ebs_size_gb" {
+  description = "EBS size in GiB for the fulltext EC2 instance."
+  type        = number
+  default     = 1
+  validation {
+    condition     = var.fulltext_ebs_size_gb >= 1 && var.fulltext_ebs_size_gb <= 16384
+    error_message = "fulltext_ebs_size_gb must be between 1 and 16384 GiB."
+  }
+}
+
+# Number of dedicated fulltext EC2 instances.
+variable "fulltext_instance_count" {
+  description = "Number of fulltext EC2 instances to launch (each gets its own EBS volume)."
+  type        = number
+  default     = 0
 }
 
 # Optional: explicit AMI ID for EC2/bastion. If null, Amazon Linux 2023 will be used (via SSM parameter lookup).
@@ -99,7 +124,7 @@ variable "enable_efs_archive" {
   default     = false
 }
 
-## EFS mount targets are created in a single AZ automatically when ec2_instance_count <= 1
+## EFS mount targets are created in a single AZ automatically when app_instance_count <= 1
 
 # EFS throughput configuration
 # efs_throughput_mode options:
@@ -192,7 +217,7 @@ variable "db_storage_throughput" {
   default     = null
 }
 
-## RDS Multi-AZ is enabled automatically when ec2_instance_count > 1
+## RDS Multi-AZ is enabled automatically when app_instance_count > 1
 
 ############################################
 # Caching (ElastiCache Redis)

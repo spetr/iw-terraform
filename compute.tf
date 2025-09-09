@@ -29,12 +29,13 @@ resource "aws_iam_instance_profile" "ec2" {
 
 locals {
   private_subnet_ids = [for s in aws_subnet.private : s.id]
+  private_subnet_azs = [for s in aws_subnet.private : s.availability_zone]
 }
 
 resource "aws_instance" "app" {
-  count                  = var.ec2_instance_count
+  count                  = var.app_instance_count
   ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
-  instance_type          = var.ec2_instance_type
+  instance_type          = var.app_instance_type
   subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
   private_ip             = cidrhost(var.private_subnets[count.index % length(local.private_subnet_ids)], 11 + count.index)
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
@@ -168,4 +169,52 @@ resource "aws_instance" "bastion" {
   tags = {
     Name = "${var.project}-${var.environment}-bastion"
   }
+}
+
+# Dedicated EC2 instance for Fulltext
+resource "aws_instance" "fulltext" {
+  count                  = var.fulltext_instance_count
+  ami                    = var.ec2_ami_id != null ? var.ec2_ami_id : data.aws_ssm_parameter.al2023_ami.value
+  instance_type          = var.fulltext_instance_type
+  subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
+  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.ec2.name
+  key_name               = var.ec2_key_name
+  user_data_replace_on_change = true
+
+  # Keep user_data minimal; volume will be attached separately
+  user_data = <<-EOF
+              #!/bin/bash
+              set -euxo pipefail
+              dnf -y update
+              # Ensure SSM Agent is running (preinstalled on Amazon Linux 2023)
+              systemctl enable --now amazon-ssm-agent || true
+              # Ensure SSH is installed and running
+              dnf -y install openssh-server || true
+              systemctl enable --now sshd || true
+              EOF
+
+  tags = {
+    Name = "${var.project}-${var.environment}-fulltext-${count.index + 1}"
+  }
+}
+
+# EBS volumes for Fulltext EC2 instances (one per instance)
+resource "aws_ebs_volume" "fulltext" {
+  count             = var.fulltext_instance_count
+  availability_zone = element(local.private_subnet_azs, count.index % length(local.private_subnet_azs))
+  size              = var.fulltext_ebs_size_gb
+  type              = "gp3"
+
+  tags = {
+    Name = "${var.project}-${var.environment}-fulltext-data-${count.index + 1}"
+  }
+}
+
+# Attach each EBS volume to its corresponding Fulltext instance
+resource "aws_volume_attachment" "fulltext" {
+  count       = var.fulltext_instance_count
+  device_name = "/dev/sdf"
+  volume_id   = aws_ebs_volume.fulltext[count.index].id
+  instance_id = aws_instance.fulltext[count.index].id
 }

@@ -22,7 +22,7 @@ resource "aws_db_instance" "mysql" {
   deletion_protection     = false
   db_subnet_group_name    = aws_db_subnet_group.this.name
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
-  multi_az                = var.ec2_instance_count > 1
+  multi_az                = var.app_instance_count > 1
   publicly_accessible     = false
   storage_encrypted       = true
   backup_retention_period = 7
