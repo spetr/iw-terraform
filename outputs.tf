@@ -31,7 +31,7 @@ output "nlb_dns_name" {
 }
 
 output "rds_endpoint" {
-  value = aws_db_instance.mysql.address
+  value = aws_db_instance.mariadb.address
 }
 
 output "valkey_endpoint" {

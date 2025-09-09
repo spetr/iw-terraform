@@ -74,6 +74,13 @@ variable "app_instance_count" {
   default     = 1
 }
 
+# Optional: explicit AMI ID for App EC2 only. Others use Amazon Linux 2023 via SSM.
+variable "app_ami_id" {
+  description = "Optional explicit AMI ID to use for App EC2 instances only. Bastion and Fulltext always use AL2023 via SSM."
+  type        = string
+  default     = null
+}
+
 # Instance type for the dedicated fulltext EC2.
 variable "fulltext_instance_type" {
   description = "Instance type for the Fulltext EC2 instance(s)."
@@ -97,13 +104,6 @@ variable "fulltext_instance_count" {
   description = "Number of Fulltext EC2 instances (each gets its own EBS). When >= 2, a dedicated HA Valkey for Fulltext is created."
   type        = number
   default     = 0
-}
-
-# Optional: explicit AMI ID for EC2/bastion. If null, Amazon Linux 2023 will be used (via SSM parameter lookup).
-variable "ec2_ami_id" {
-  description = "Optional explicit AMI ID to use for EC2 and bastion. If null, Terraform will use Amazon Linux 2023 AMI via SSM parameter."
-  type        = string
-  default     = null
 }
 
 # Optional: name of an existing EC2 Key Pair for SSH access.
@@ -183,7 +183,7 @@ variable "db_monitoring_interval" {
 variable "db_instance_class" {
   description = "RDS instance class."
   type        = string
-  default     = "db.t4g.small"
+  default     = "db.t4g.micro"
 }
 
 # Initial RDS storage size in GB.

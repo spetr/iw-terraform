@@ -3,9 +3,8 @@
 Aktuální architektura: public a private subnets, public NLB s Elastic IP adresami, který předává porty 80/443 na interní ALB; NAT Gateway pro egress privátních instancí.
 
 ```mermaid
-flowchart LR
+flowchart TD
   Internet[[Internet]]
-  Client[[Client VPN user]]
 
   subgraph AWS["AWS Account (Region)"]
     subgraph VPC["VPC (10.0.0.0/16)"]
@@ -26,8 +25,8 @@ flowchart LR
         EFS2["EFS (config)"]
         EFS3["EFS (archive)"]
         RDS[("RDS MariaDB")]
-          ValkeyApp[("ElastiCache Valkey (App)")]
-          ValkeyFT[("ElastiCache Valkey (Fulltext)")]
+        ValkeyApp[("ElastiCache Valkey (App)")]
+        ValkeyFT[("ElastiCache Valkey (Fulltext)")]
         EBSFT["EBS Volume(s) for Fulltext"]
       end
     end
@@ -63,7 +62,8 @@ flowchart LR
   FT -- "/dev/sdf" --> EBSFT
 
   %% VPN access into VPC
-  Client --> CVPN --> Private
+  Internet --> CVPN
+  CVPN --> Private
 
   %% Styling for optional components
   classDef optional fill:#f7f7f7,stroke:#888,stroke-width:1px,stroke-dasharray: 5 5,color:#333
