@@ -24,11 +24,14 @@ flowchart LR
         Bastion["Bastion (SSM + optional SSH)"]
         EFS1["EFS (data)"]
         EFS2["EFS (config)"]
+        EFS3["EFS (archive)"]
         RDS[("RDS MariaDB")]
-        Redis[("ElastiCache Redis")]
+        RedisApp[("ElastiCache Redis (App)")]
+        RedisFT[("ElastiCache Redis (Fulltext)")]
         EBSFT["EBS Volume(s) for Fulltext"]
       end
     end
+    SES["Amazon SES"]
   end
 
   Internet <--> IGW
@@ -44,9 +47,14 @@ flowchart LR
   %% East-west inside VPC
   EC2 -- "NFS 2049" --> EFS1
   EC2 -- "NFS 2049" --> EFS2
+  EC2 -- "NFS 2049" --> EFS3
   EC2 -->|"MariaDB/MySQL 3306"| RDS
-  EC2 -->|"Redis 6379"| Redis
+  EC2 -->|"Redis 6379"| RedisApp
+  FT  -->|"Redis 6379"| RedisFT
   EC2 -->|"HTTP 80/443"| FT
+
+  %% App to SES (API/SMTP) – via NAT egress
+  EC2 -->|"SES API/SMTP 443/587"| SES
 
   %% Egress
   EC2 -->|egress| NAT --> IGW
@@ -56,18 +64,29 @@ flowchart LR
 
   %% VPN access into VPC
   Client --> CVPN --> Private
+
+  %% Styling for optional components
+  classDef optional fill:#f7f7f7,stroke:#888,stroke-width:1px,stroke-dasharray: 5 5,color:#333
+  class EFS3,RedisFT,SES,CVPN,Bastion optional
 ```
 
 Legend
 - Public subnets: NLB (EIP), NAT GW, Client VPN assoc.
-- Private subnets: Internal ALB, EC2, RDS, Redis, EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
+- Private subnets: Internal ALB, EC2, RDS, Redis (App/Fulltext), EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
 - Egress z privátních EC2 jde přes NAT Gateway do Internetu.
 - S3 Gateway VPC Endpoint je připojen k private route tables.
+- Uzly se zvýrazněným (čárkovaným) okrajem jsou nepovinné a vytvářejí se jen při zapnutí příslušných voleb (např. EFS archive, Redis pro Fulltext).
+
+- Vždy nasazeno: VPC, public/private subnets, IGW, NLB, ALB (internal), EC2 App, RDS, Redis (App – single/HA dle počtu app instancí), EFS (data, config), NAT (single nebo per‑AZ podle `app_instance_count`).
+- Volitelné: Bastion (SSM‑only), Client VPN endpoint, EFS archive, Redis (Fulltext, HA), Amazon SES, Fulltext EC2 + jeho EBS svazky (dle `fulltext_instance_count`).
+ - Amazon SES: volitelný; aplikace odesílá přes AWS SDK (HTTPS) nebo SMTP, odesílatel musí být ověřen (email/doména, DKIM doporučeno).
 
 Notes
 - CIDR pro `public_subnets` a `private_subnets` jsou v `variables.tf`.
 - NAT pravidlo: když `app_instance_count <= 1`, vytvoří se jedna NAT GW v public[0]; když je `app_instance_count > 1`, vytvoří se NAT GW v každé public subnet a private RTs routují per‑AZ.
 - EFS MT pravidlo: když `app_instance_count <= 1`, EFS má mount target jen v první private subnet; jinak v každé private subnet (per‑AZ).
+- Redis (App): když `app_instance_count <= 1`, jednonodový cluster; když `app_instance_count > 1`, Multi‑AZ replication group s automatickým failoverem.
+- Redis (Fulltext): vytváří se jen když `fulltext_instance_count >= 2` a nasazuje se jako Multi‑AZ replication group.
 - Security Groups definované v `network.tf` omezují provoz; ICMP v rámci VPC je povolen pro diagnostiku.
  - SSH přístup: když `enable_ssh_access = true`, otevře se port 22 v SG pro EC2 (`allowed_ssh_cidr`) a volitelně i pro bastion SG.
  - Hostname: EC2 app i bastion si při bootstrapu nastaví hostname podle Name tagu a zachovají jej napříč rebooty.

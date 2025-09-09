@@ -35,7 +35,11 @@ output "rds_endpoint" {
 }
 
 output "redis_endpoint" {
-  value = try(aws_elasticache_replication_group.redis[0].primary_endpoint_address, aws_elasticache_cluster.redis[0].cache_nodes[0].address)
+  value = try(aws_elasticache_replication_group.redis_app[0].primary_endpoint_address, aws_elasticache_cluster.redis_app[0].cache_nodes[0].address)
+}
+
+output "redis_fulltext_endpoint" {
+  value = try(aws_elasticache_replication_group.redis_fulltext[0].primary_endpoint_address, null)
 }
 
 output "efs_data_id" {

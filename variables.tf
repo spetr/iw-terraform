@@ -36,21 +36,21 @@ variable "vpc_cidr" {
 
 # CIDR list for public subnets (ALB/NLB, NAT Gateway, IGW).
 variable "public_subnets" {
-  description = "List of public subnet CIDRs (routed to IGW)."
+  description = "List of public subnet CIDRs (routed to IGW). Typically one per AZ (e.g., 2 items for 2 AZs). Used for NLB, NAT, Client VPN."
   type        = list(string)
   default     = ["10.0.0.0/24", "10.0.1.0/24"]
 }
 
 # CIDR list for private subnets (EC2, RDS, Redis, EFS; egress via NAT).
 variable "private_subnets" {
-  description = "List of private subnet CIDRs (no public IPs; egress via NAT)."
+  description = "List of private subnet CIDRs (no public IPs; egress via NAT). Hosts EC2, RDS, Redis, EFS."
   type        = list(string)
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
 }
 
 # Optional list of AZs; if empty, the first 2 available will be used.
 variable "availability_zones" {
-  description = "AZs to use. If empty, will use data source to fetch."
+  description = "AZs to use. If empty, the first 2 available AZs in the region will be used."
   type        = list(string)
   default     = []
 }
@@ -62,28 +62,28 @@ variable "availability_zones" {
 
 # App instance type for EC2 app instances (e.g., t3.micro).
 variable "app_instance_type" {
-  description = "EC2 instance type for app instances."
+  description = "EC2 instance type for App instances (behind ALB)."
   type        = string
   default     = "t3.micro"
 }
 
 # Number of app EC2 instances (spread across private subnets/AZs).
 variable "app_instance_count" {
-  description = "Number of EC2 app instances to launch."
+  description = "Number of App EC2 instances. Affects HA (NAT per‑AZ, EFS MTs, RDS Multi‑AZ, Redis App HA)."
   type        = number
   default     = 1
 }
 
 # Instance type for the dedicated fulltext EC2.
 variable "fulltext_instance_type" {
-  description = "Instance type for the fulltext EC2 instance."
+  description = "Instance type for the Fulltext EC2 instance(s)."
   type        = string
   default     = "t3.micro"
 }
 
 # EBS volume size (GiB) for the fulltext EC2 instance.
 variable "fulltext_ebs_size_gb" {
-  description = "EBS size in GiB for the fulltext EC2 instance."
+  description = "EBS size in GiB per Fulltext EC2 instance (one volume per instance)."
   type        = number
   default     = 1
   validation {
@@ -94,7 +94,7 @@ variable "fulltext_ebs_size_gb" {
 
 # Number of dedicated fulltext EC2 instances.
 variable "fulltext_instance_count" {
-  description = "Number of fulltext EC2 instances to launch (each gets its own EBS volume)."
+  description = "Number of Fulltext EC2 instances (each gets its own EBS). When >= 2, a dedicated HA Redis for Fulltext is created."
   type        = number
   default     = 0
 }
@@ -119,7 +119,7 @@ variable "ec2_key_name" {
 
 # Enable creation of a third EFS "archive" (in addition to data and config).
 variable "enable_efs_archive" {
-  description = "Whether to create an optional third EFS filesystem named 'archive'."
+  description = "Create optional third EFS filesystem named 'archive' (disabled by default)."
   type        = bool
   default     = false
 }
@@ -235,16 +235,28 @@ variable "db_storage_throughput" {
 # Caching (ElastiCache Redis)
 ############################################
 
-# ElastiCache Redis node type (e.g., cache.t3.micro).
-variable "redis_node_type" {
-  description = "ElastiCache node type."
+# App Redis
+variable "redis_app_node_type" {
+  description = "ElastiCache node type for App Redis (single node for 1 app; HA replication group when app_instance_count > 1)."
   type        = string
   default     = "cache.t3.micro"
 }
 
-# Redis engine version.
-variable "redis_engine_version" {
-  description = "Redis engine version."
+variable "redis_app_engine_version" {
+  description = "Redis engine version for App Redis."
+  type        = string
+  default     = "7.0"
+}
+
+# Fulltext Redis
+variable "redis_fulltext_node_type" {
+  description = "ElastiCache node type for Fulltext Redis (created only when fulltext_instance_count >= 2; Multi‑AZ replication group)."
+  type        = string
+  default     = "cache.t3.small"
+}
+
+variable "redis_fulltext_engine_version" {
+  description = "Redis engine version for Fulltext Redis."
   type        = string
   default     = "7.0"
 }
@@ -337,7 +349,7 @@ variable "ses_route53_zone_ids" {
 
 # Create an optional bastion (SSM‑only, no public IP, no inbound SSH).
 variable "create_bastion" {
-  description = "Whether to create a small bastion host in a public subnet for troubleshooting."
+  description = "Whether to create a small SSM‑only bastion host in a private subnet for troubleshooting."
   type        = bool
   default     = true
 }
@@ -355,14 +367,14 @@ variable "bastion_instance_type" {
 
 # Enable direct SSH (port 22) to EC2; when false, the SSH ingress rule is omitted.
 variable "enable_ssh_access" {
-  description = "Enable direct SSH (port 22) to EC2 instances. When false, SSH ingress is not created."
+  description = "Enable direct SSH (port 22) to EC2 instances (in addition to SSM). When false, no SSH ingress is created."
   type        = bool
   default     = false
 }
 
 # CIDR allowed for SSH access (narrow this; prefer SSM in production).
 variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to SSH to instances (for bastion or SSM optional)."
+  description = "Allowed CIDR blocks for SSH access (tighten for production)."
   type        = list(string)
   default     = ["0.0.0.0/0"]
 }
