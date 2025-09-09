@@ -115,6 +115,24 @@ Poznámky:
 - `backend.hcl` je v `.gitignore` – necommitujte přístupové či environment‑specifické údaje.
 - Pokud měníte backend nebo cestu `key`, znovu spusťte `./init.sh` (používá `-reconfigure`).
 
+### ALB/NLB Access Logs (volitelné)
+
+- Proměnné:
+  - `enable_lb_access_logs` (bool): výchozí `false`.
+  - `lb_logs_bucket` (string): S3 bucket pro logy (nutná správná bucket policy pro ELB log delivery).
+  - `lb_logs_prefix` (string, volitelné): prefix v bucketu; pokud není, použije se `project/environment/alb` a `project/environment/nlb`.
+
+- Příklad `terraform.tfvars`:
+```
+enable_lb_access_logs = true
+lb_logs_bucket        = "my-elb-logs-bucket"
+# lb_logs_prefix      = "custom/prefix"
+```
+
+- Poznámky:
+  - Ujistěte se, že S3 bucket má povolen zápis z ELBv2 logovací služby (bucket policy). Viz dokumentace „Elastic Load Balancing access logs“ pro správný JSON.
+  - Logy se ukládají zvlášť pro ALB i NLB (různý prefix).
+
 ## Notes
 - AMI: Uses Amazon Linux 2023 by default (via SSM Parameter Store). No Marketplace subscription needed.
 - Private EC2 instances have Internet egress via NAT Gateways in each public subnet (HA egress).

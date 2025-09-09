@@ -229,7 +229,12 @@ variable "db_storage_throughput" {
   default     = null
 }
 
-## RDS Multi-AZ is enabled automatically when app_instance_count > 1
+# Protect the RDS instance from accidental deletion.
+variable "db_deletion_protection" {
+  description = "Enable deletion protection on the RDS instance to prevent accidental deletes."
+  type        = bool
+  default     = true
+}
 
 ############################################
 # Caching (ElastiCache Valkey)
@@ -289,6 +294,25 @@ variable "enable_waf_basic" {
   description = "Create a basic AWS WAFv2 Web ACL (REGIONAL) with AWS managed rule groups and attach it to ALB when waf_web_acl_arn is not provided."
   type        = bool
   default     = false
+}
+
+# Access logging for ALB/NLB (optional)
+variable "enable_lb_access_logs" {
+  description = "Enable access logging to S3 for both ALB and NLB. When true, lb_logs_bucket must be set."
+  type        = bool
+  default     = false
+}
+
+variable "lb_logs_bucket" {
+  description = "S3 bucket name to store ALB/NLB access logs (must have appropriate bucket policy). Required if enable_lb_access_logs = true."
+  type        = string
+  default     = null
+}
+
+variable "lb_logs_prefix" {
+  description = "Optional S3 key prefix for access logs. When null, a default is used: <project>/<environment>/<alb|nlb>."
+  type        = string
+  default     = null
 }
 
 ############################################

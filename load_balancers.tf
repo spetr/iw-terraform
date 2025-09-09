@@ -21,6 +21,15 @@ resource "aws_lb" "alb" {
   security_groups    = [aws_security_group.alb_sg.id]
   subnets            = [for s in aws_subnet.private : s.id]
   idle_timeout       = 60
+
+  dynamic "access_logs" {
+    for_each = var.enable_lb_access_logs && var.lb_logs_bucket != null ? [1] : []
+    content {
+      bucket  = var.lb_logs_bucket
+      prefix  = coalesce(var.lb_logs_prefix, "${var.project}/${var.environment}/alb")
+      enabled = true
+    }
+  }
 }
 
 resource "aws_lb_target_group" "alb_tg" {
@@ -185,6 +194,15 @@ resource "aws_lb" "nlb" {
   internal           = false
   load_balancer_type = "network"
   ip_address_type    = "dualstack"
+
+  dynamic "access_logs" {
+    for_each = var.enable_lb_access_logs && var.lb_logs_bucket != null ? [1] : []
+    content {
+      bucket  = var.lb_logs_bucket
+      prefix  = coalesce(var.lb_logs_prefix, "${var.project}/${var.environment}/nlb")
+      enabled = true
+    }
+  }
 
   dynamic "subnet_mapping" {
     # Iterate over the actual public subnet map to ensure subnet_id is always set

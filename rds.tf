@@ -37,7 +37,7 @@ resource "aws_db_instance" "mariadb" {
   iops                    = (var.db_storage_type == "io1" || var.db_storage_type == "io2" || var.db_storage_type == "gp3") && var.db_iops != null ? var.db_iops : null
   storage_throughput      = var.db_storage_type == "gp3" && var.db_storage_throughput != null ? var.db_storage_throughput : null
   skip_final_snapshot     = true
-  deletion_protection     = false
+  deletion_protection     = var.db_deletion_protection
   db_subnet_group_name    = aws_db_subnet_group.this.name
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
   multi_az                = var.app_instance_count > 1
