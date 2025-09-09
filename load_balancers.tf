@@ -194,10 +194,6 @@ resource "aws_lb" "nlb" {
       ipv6_address  = cidrhost(aws_subnet.public[subnet_mapping.value].ipv6_cidr_block, 10)
     }
   }
-
-  lifecycle {
-    create_before_destroy = true
-  }
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
