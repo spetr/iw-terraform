@@ -12,6 +12,7 @@ resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
+  assign_generated_ipv6_cidr_block = true
 
   tags = {
     Name = "${var.project}-${var.environment}-vpc"
@@ -32,6 +33,8 @@ resource "aws_subnet" "public" {
   cidr_block              = each.value
   availability_zone       = local.azs[tonumber(each.key)]
   map_public_ip_on_launch = true
+  assign_ipv6_address_on_creation = true
+  ipv6_cidr_block = cidrsubnet(aws_vpc.main.ipv6_cidr_block, 8, tonumber(each.key))
 
   tags = {
     Name = "${var.project}-${var.environment}-public-${each.key}"
@@ -43,6 +46,8 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = each.value
   availability_zone = local.azs[tonumber(each.key)]
+  assign_ipv6_address_on_creation = true
+  ipv6_cidr_block = cidrsubnet(aws_vpc.main.ipv6_cidr_block, 8, 100 + tonumber(each.key))
 
   tags = {
     Name = "${var.project}-${var.environment}-private-${each.key}"
@@ -78,6 +83,11 @@ resource "aws_route_table" "public" {
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
+  }
+
+  route {
+    ipv6_cidr_block = "::/0"
+    gateway_id      = aws_internet_gateway.igw.id
   }
 
   tags = {
@@ -195,7 +205,8 @@ resource "aws_security_group" "alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  cidr_blocks      = ["0.0.0.0/0"]
+  ipv6_cidr_blocks = ["::/0"]
   }
 
   ingress {
@@ -203,14 +214,16 @@ resource "aws_security_group" "alb_sg" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  cidr_blocks      = ["0.0.0.0/0"]
+  ipv6_cidr_blocks = ["::/0"]
   }
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
   }
 }
 

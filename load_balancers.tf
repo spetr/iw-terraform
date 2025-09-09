@@ -172,8 +172,8 @@ resource "aws_wafv2_web_acl_association" "alb_basic" {
 
 # Network Load Balancer for TCP ports (mail protocols)
 resource "aws_eip" "nlb" {
-  # Allocate one EIP per public subnet to attach to the NLB
-  for_each = aws_subnet.public
+  # Allocate one EIP per public subnet to attach to the NLB (use stable string keys)
+  for_each = toset(keys(aws_subnet.public))
   domain   = "vpc"
   tags = {
     Name = "${var.project}-${var.environment}-nlb-eip-${each.key}"
@@ -184,12 +184,14 @@ resource "aws_lb" "nlb" {
   name               = "${var.project}-${var.environment}-nlb-eip"
   internal           = false
   load_balancer_type = "network"
+  ip_address_type    = "dualstack"
 
   dynamic "subnet_mapping" {
-    for_each = aws_subnet.public
+    for_each = toset(keys(aws_subnet.public))
     content {
-      subnet_id     = subnet_mapping.value.id
-      allocation_id = aws_eip.nlb[subnet_mapping.key].id
+      subnet_id     = aws_subnet.public[subnet_mapping.value].id
+      allocation_id = aws_eip.nlb[subnet_mapping.value].id
+      ipv6_address  = cidrhost(aws_subnet.public[subnet_mapping.value].ipv6_cidr_block, 10)
     }
   }
 
