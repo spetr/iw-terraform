@@ -1,18 +1,18 @@
 resource "aws_efs_file_system" "data" {
-  performance_mode = "generalPurpose"
-  throughput_mode  = var.efs_throughput_mode
+  performance_mode                = "generalPurpose"
+  throughput_mode                 = var.efs_throughput_mode
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" && var.efs_provisioned_throughput_mibps != null ? var.efs_provisioned_throughput_mibps : null
-  encrypted = true
+  encrypted                       = true
   tags = {
     Name = "${var.project}-${var.environment}-efs-data"
   }
 }
 
 resource "aws_efs_file_system" "config" {
-  performance_mode = "generalPurpose"
-  throughput_mode  = var.efs_throughput_mode
+  performance_mode                = "generalPurpose"
+  throughput_mode                 = var.efs_throughput_mode
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" && var.efs_provisioned_throughput_mibps != null ? var.efs_provisioned_throughput_mibps : null
-  encrypted = true
+  encrypted                       = true
   tags = {
     Name = "${var.project}-${var.environment}-efs-config"
   }
@@ -34,11 +34,11 @@ resource "aws_efs_mount_target" "config" {
 
 # Optional EFS: archive
 resource "aws_efs_file_system" "archive" {
-  count     = var.enable_efs_archive ? 1 : 0
-  performance_mode = "generalPurpose"
-  throughput_mode  = var.efs_throughput_mode
+  count                           = var.enable_efs_archive ? 1 : 0
+  performance_mode                = "generalPurpose"
+  throughput_mode                 = var.efs_throughput_mode
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" && var.efs_provisioned_throughput_mibps != null ? var.efs_provisioned_throughput_mibps : null
-  encrypted = true
+  encrypted                       = true
   tags = {
     Name = "${var.project}-${var.environment}-efs-archive"
   }

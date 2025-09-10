@@ -38,14 +38,14 @@ locals {
 }
 
 resource "aws_instance" "app" {
-  count                  = var.app_instance_count
-  ami                    = var.app_ami_id != null ? var.app_ami_id : data.aws_ssm_parameter.al2023_ami.value
-  instance_type          = var.app_instance_type
-  subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
-  private_ip             = cidrhost(var.private_subnets[count.index % length(local.private_subnet_ids)], 11 + count.index)
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2.name
-  key_name               = var.ec2_key_name
+  count                       = var.app_instance_count
+  ami                         = var.app_ami_id != null ? var.app_ami_id : data.aws_ssm_parameter.al2023_ami.value
+  instance_type               = var.app_instance_type
+  subnet_id                   = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
+  private_ip                  = cidrhost(var.private_subnets[count.index % length(local.private_subnet_ids)], 11 + count.index)
+  vpc_security_group_ids      = [aws_security_group.ec2_sg.id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2.name
+  key_name                    = var.ec2_key_name
   user_data_replace_on_change = true
 
   user_data = <<-EOF
@@ -91,7 +91,7 @@ resource "aws_instance" "app" {
   }
 
   tags = {
-  Name = "${var.project}-${var.environment}-app-${count.index + 1}"
+    Name = "${var.project}-${var.environment}-app-${count.index + 1}"
   }
 }
 
@@ -131,15 +131,15 @@ resource "aws_security_group" "bastion_sg" {
 }
 
 resource "aws_instance" "bastion" {
-  count                  = var.create_bastion ? 1 : 0
-  ami                    = data.aws_ssm_parameter.al2023_ami_arm64.value
-  instance_type          = var.bastion_instance_type
-  subnet_id              = local.private_subnet_ids[0]
-  private_ip             = cidrhost(var.private_subnets[0], 10)
-  vpc_security_group_ids = [aws_security_group.bastion_sg[0].id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2.name
+  count                       = var.create_bastion ? 1 : 0
+  ami                         = data.aws_ssm_parameter.al2023_ami_arm64.value
+  instance_type               = var.bastion_instance_type
+  subnet_id                   = local.private_subnet_ids[0]
+  private_ip                  = cidrhost(var.private_subnets[0], 10)
+  vpc_security_group_ids      = [aws_security_group.bastion_sg[0].id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2.name
   associate_public_ip_address = false
-  key_name               = var.ec2_key_name
+  key_name                    = var.ec2_key_name
   user_data_replace_on_change = true
 
   user_data = <<-EOF
@@ -177,13 +177,13 @@ resource "aws_instance" "bastion" {
 
 # Dedicated EC2 instance for Fulltext
 resource "aws_instance" "fulltext" {
-  count                  = var.fulltext_instance_count
-  ami                    = data.aws_ssm_parameter.al2023_ami_arm64.value
-  instance_type          = var.fulltext_instance_type
-  subnet_id              = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
-  vpc_security_group_ids = [aws_security_group.ec2_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2.name
-  key_name               = var.ec2_key_name
+  count                       = var.fulltext_instance_count
+  ami                         = data.aws_ssm_parameter.al2023_ami_arm64.value
+  instance_type               = var.fulltext_instance_type
+  subnet_id                   = element(local.private_subnet_ids, count.index % length(local.private_subnet_ids))
+  vpc_security_group_ids      = [aws_security_group.ec2_sg.id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2.name
+  key_name                    = var.ec2_key_name
   user_data_replace_on_change = true
 
   # Keep user_data minimal; volume will be attached separately

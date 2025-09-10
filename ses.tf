@@ -93,7 +93,7 @@ resource "aws_iam_policy" "ses_send_email" {
           "ses:SendEmail",
           "ses:SendRawEmail"
         ],
-  Resource = local.ses_send_policy_resource
+        Resource = local.ses_send_policy_resource
       }
     ]
   })

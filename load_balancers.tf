@@ -64,8 +64,8 @@ resource "aws_lb_listener" "http_redirect" {
   default_action {
     type = "redirect"
     redirect {
-      protocol   = "HTTPS"
-      port       = "443"
+      protocol    = "HTTPS"
+      port        = "443"
       status_code = "HTTP_301"
     }
   }
@@ -100,7 +100,7 @@ resource "aws_wafv2_web_acl_association" "alb" {
 
 # Optionally create a basic WAF and associate with ALB when no external ARN is provided
 resource "aws_wafv2_web_acl" "basic" {
-  count = var.waf_web_acl_arn == null && var.enable_waf_basic ? 1 : 0
+  count       = var.waf_web_acl_arn == null && var.enable_waf_basic ? 1 : 0
   name        = "${var.project}-${var.environment}-waf-basic"
   description = "Basic WAF REGIONAL with AWS managed rule groups"
   scope       = "REGIONAL"
@@ -216,11 +216,11 @@ resource "aws_lb" "nlb" {
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
-  for_each = toset([for p in local.nlb_ports : tostring(p)])
-  name     = "${var.project}-${var.environment}-nlb-tg-${each.key}"
-  port     = tonumber(each.key)
-  protocol = "TCP"
-  vpc_id   = aws_vpc.main.id
+  for_each    = toset([for p in local.nlb_ports : tostring(p)])
+  name        = "${var.project}-${var.environment}-nlb-tg-${each.key}"
+  port        = tonumber(each.key)
+  protocol    = "TCP"
+  vpc_id      = aws_vpc.main.id
   target_type = "instance"
 
   # Enable stickiness on NLB by source IP

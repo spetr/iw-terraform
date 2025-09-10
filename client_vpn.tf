@@ -8,8 +8,8 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
   dns_servers            = ["8.8.8.8", "1.1.1.1"]
 
   authentication_options {
-  type                       = var.client_vpn_auth_saml_provider_arn == null ? "certificate-authentication" : "federated-authentication"
-  root_certificate_chain_arn = var.client_vpn_auth_saml_provider_arn == null ? var.client_vpn_client_root_certificate_arn : null
+    type                       = var.client_vpn_auth_saml_provider_arn == null ? "certificate-authentication" : "federated-authentication"
+    root_certificate_chain_arn = var.client_vpn_auth_saml_provider_arn == null ? var.client_vpn_client_root_certificate_arn : null
     saml_provider_arn          = var.client_vpn_auth_saml_provider_arn
   }
 
@@ -31,10 +31,10 @@ resource "aws_ec2_client_vpn_network_association" "this" {
 }
 
 resource "aws_ec2_client_vpn_authorization_rule" "this" {
-  count                   = var.enable_client_vpn ? 1 : 0
-  client_vpn_endpoint_id  = aws_ec2_client_vpn_endpoint.this[0].id
-  target_network_cidr     = var.vpc_cidr
-  authorize_all_groups    = true
+  count                  = var.enable_client_vpn ? 1 : 0
+  client_vpn_endpoint_id = aws_ec2_client_vpn_endpoint.this[0].id
+  target_network_cidr    = var.vpc_cidr
+  authorize_all_groups   = true
 }
 
 resource "aws_ec2_client_vpn_route" "this" {

@@ -12,9 +12,9 @@ resource "aws_iam_role" "rds_enhanced_monitoring" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
-      Effect = "Allow",
+      Effect    = "Allow",
       Principal = { Service = "monitoring.rds.amazonaws.com" },
-      Action = "sts:AssumeRole"
+      Action    = "sts:AssumeRole"
     }]
   })
 }
@@ -41,14 +41,14 @@ resource "aws_db_parameter_group" "mariadb" {
   }
 
   parameter {
-    name         = "max_connections"
-    value        = tostring(var.db_max_connections)
+    name  = "max_connections"
+    value = tostring(var.db_max_connections)
   }
 
   # Allow non‑TLS connections (disable TLS requirement)
   parameter {
-    name         = "require_secure_transport"
-    value        = "0"
+    name  = "require_secure_transport"
+    value = "0"
   }
 }
 
