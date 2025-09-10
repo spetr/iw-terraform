@@ -32,9 +32,13 @@ data "aws_rds_engine_version" "mariadb" {
 
 ## Parameter group to configure DB parameters (e.g., max_connections)
 resource "aws_db_parameter_group" "mariadb" {
-  name        = "${var.project}-${var.environment}-mariadb-params"
+  name_prefix = "${var.project}-${var.environment}-mariadb-params-"
   family      = data.aws_rds_engine_version.mariadb.parameter_group_family
   description = "${var.project}/${var.environment} MariaDB parameter group"
+
+  lifecycle {
+    create_before_destroy = true
+  }
 
   parameter {
     name         = "max_connections"
@@ -44,7 +48,7 @@ resource "aws_db_parameter_group" "mariadb" {
   # Allow non‑TLS connections (disable TLS requirement)
   parameter {
     name         = "require_secure_transport"
-    value        = "OFF"
+    value        = "0"
   }
 }
 
