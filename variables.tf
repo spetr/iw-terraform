@@ -238,7 +238,7 @@ variable "db_deletion_protection" {
 
 # Max SQL connections (RDS MariaDB parameter group: max_connections)
 variable "db_max_connections" {
-  description = "Max SQL connections for MariaDB (RDS parameter 'max_connections')."
+  description = "Max SQL connections for MariaDB (RDS parameter 'max_connections'). Change requires DB reboot!!!"
   type        = number
   default     = 100
 }

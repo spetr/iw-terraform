@@ -39,14 +39,12 @@ resource "aws_db_parameter_group" "mariadb" {
   parameter {
     name         = "max_connections"
     value        = tostring(var.db_max_connections)
-    apply_method = "pending-reboot"
   }
 
   # Allow non‑TLS connections (disable TLS requirement)
   parameter {
     name         = "require_secure_transport"
     value        = "OFF"
-    apply_method = "pending-reboot"
   }
 }
 
