@@ -83,6 +83,13 @@ resource "aws_instance" "app" {
 
               EOF
 
+  lifecycle {
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
+  }
+
   tags = {
   Name = "${var.project}-${var.environment}-app-${count.index + 1}"
   }
@@ -156,6 +163,13 @@ resource "aws_instance" "bastion" {
               # SSH available if security group allows it; SSM remains available
               EOF
 
+  lifecycle {
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
+  }
+
   tags = {
     Name = "${var.project}-${var.environment}-bastion"
   }
@@ -183,6 +197,13 @@ resource "aws_instance" "fulltext" {
               dnf -y install openssh-server || true
               systemctl enable --now sshd || true
               EOF
+
+  lifecycle {
+    ignore_changes = [
+      ami,
+      user_data,
+    ]
+  }
 
   tags = {
     Name = "${var.project}-${var.environment}-fulltext-${count.index + 1}"
