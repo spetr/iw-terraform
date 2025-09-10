@@ -24,6 +24,25 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
+## Determine correct parameter group family for MariaDB engine/version
+data "aws_rds_engine_version" "mariadb" {
+  engine  = "mariadb"
+  version = "11.8"
+}
+
+## Parameter group to configure DB parameters (e.g., max_connections)
+resource "aws_db_parameter_group" "mariadb" {
+  name        = "${var.project}-${var.environment}-mariadb-params"
+  family      = data.aws_rds_engine_version.mariadb.parameter_group_family
+  description = "${var.project}/${var.environment} MariaDB parameter group"
+
+  parameter {
+    name         = "max_connections"
+    value        = tostring(var.db_max_connections)
+    apply_method = "pending-reboot"
+  }
+}
+
 resource "aws_db_instance" "mariadb" {
   identifier              = "${var.project}-${var.environment}-mariadb"
   engine                  = "mariadb"
@@ -39,6 +58,7 @@ resource "aws_db_instance" "mariadb" {
   skip_final_snapshot     = true
   deletion_protection     = var.db_deletion_protection
   db_subnet_group_name    = aws_db_subnet_group.this.name
+  parameter_group_name    = aws_db_parameter_group.mariadb.name
   vpc_security_group_ids  = [aws_security_group.rds_sg.id]
   multi_az                = var.app_instance_count > 1
   publicly_accessible     = false
