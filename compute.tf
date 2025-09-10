@@ -68,21 +68,6 @@ resource "aws_instance" "app" {
               printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
               grep -q "\b$HOSTNAME\b" /etc/hosts || echo "127.0.0.1 $HOSTNAME" >> /etc/hosts
 
-              # Simple web app placeholder
-              dnf install -y nginx
-              echo "<h1>${var.project}-${var.environment}-app-${count.index + 1} EC2 UP</h1>" > /usr/share/nginx/html/index.html
-              cat >/etc/nginx/conf.d/realip.conf <<'NGINX'
-              # X-Forwarded-For handling from trusted proxies (private subnets)
-              real_ip_header X-Forwarded-For;
-              real_ip_recursive on;
-              NGINX
-              for cidr in ${join(" ", var.private_subnets)}; do
-                echo "set_real_ip_from $cidr;" >> /etc/nginx/conf.d/realip.conf
-              done
-              systemctl enable --now nginx
-
-              nginx -t && systemctl reload nginx || true
-
               mkdir -p /mnt/data/config
               mkdir -p /mnt/data/mail
               if [ -n "${try(aws_efs_file_system.archive[0].id, "")}" ]; then
