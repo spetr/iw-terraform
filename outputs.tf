@@ -78,3 +78,11 @@ output "docconvert_dns_name" {
   description = "Private DNS name for ECS docconvert service (Cloud Map)."
   value       = "docconvert.${var.service_discovery_namespace}"
 }
+
+output "zabbix_proxy_instance_id" {
+  value = try(aws_instance.zabbix_proxy[0].id, null)
+}
+
+output "zabbix_proxy_private_ip" {
+  value = try(aws_instance.zabbix_proxy[0].private_ip, null)
+}

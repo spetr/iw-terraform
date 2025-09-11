@@ -154,6 +154,38 @@ variable "service_discovery_namespace" {
 }
 
 ############################################
+# Monitoring - Zabbix Proxy (optional)
+############################################
+
+# Create a small Zabbix Proxy EC2 instance (active mode).
+variable "create_zabbix_proxy" {
+  description = "Whether to create a Zabbix Proxy EC2 instance (active proxy)."
+  type        = bool
+  default     = false
+}
+
+# Zabbix server hostname or IP the proxy should connect to.
+variable "zabbix_server" {
+  description = "Zabbix Server hostname or IP (the proxy connects to it in active mode)."
+  type        = string
+  default     = "zabbix.example.com"
+}
+
+# EC2 instance type for Zabbix Proxy (ARM preferred).
+variable "zabbix_proxy_instance_type" {
+  description = "Zabbix Proxy EC2 instance type (ARM, e.g., t4g.micro or t4g.small)."
+  type        = string
+  default     = "t4g.micro"
+}
+
+# Hostname to register for the proxy (must match name configured in Zabbix UI).
+variable "zabbix_proxy_hostname" {
+  description = "Zabbix Proxy name/hostname (must match on server)."
+  type        = string
+  default     = null
+}
+
+############################################
 # Storage (EFS)
 ############################################
 

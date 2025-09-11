@@ -104,6 +104,17 @@ resource "aws_security_group" "docconvert" {
     }
   }
 
+  dynamic "ingress" {
+    for_each = var.create_zabbix_proxy ? [1] : []
+    content {
+      description     = "From Zabbix Proxy"
+      from_port       = var.docconvert_container_port
+      to_port         = var.docconvert_container_port
+      protocol        = "tcp"
+      security_groups = [aws_security_group.zabbix_sg[0].id]
+    }
+  }
+
   # Allow outbound to Internet via NAT Gateway (tasks are in private subnets)
   egress {
     from_port   = 0

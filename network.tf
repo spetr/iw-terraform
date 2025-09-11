@@ -170,6 +170,18 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  # Allow all traffic from Zabbix Proxy for monitoring (app + fulltext share this SG)
+  dynamic "ingress" {
+    for_each = var.create_zabbix_proxy ? [1] : []
+    content {
+      description     = "All from Zabbix Proxy"
+      from_port       = 0
+      to_port         = 0
+      protocol        = "-1"
+      security_groups = [aws_security_group.zabbix_sg[0].id]
+    }
+  }
+
   # HTTPS is always handled by ALB; no NLB 443 passthrough needed
 
   dynamic "ingress" {
@@ -238,6 +250,18 @@ resource "aws_security_group" "rds_sg" {
     to_port         = 3306
     protocol        = "tcp"
     security_groups = [aws_security_group.ec2_sg.id]
+  }
+
+  # Allow SQL from Zabbix Proxy for monitoring
+  dynamic "ingress" {
+    for_each = var.create_zabbix_proxy ? [1] : []
+    content {
+      description     = "SQL 3306 from Zabbix Proxy"
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [aws_security_group.zabbix_sg[0].id]
+    }
   }
 
   egress {

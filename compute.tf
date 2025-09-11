@@ -88,6 +88,10 @@ resource "aws_instance" "app" {
       ami,
       user_data,
     ]
+    precondition {
+      condition     = var.zabbix_server != null && var.zabbix_server != ""
+      error_message = "zabbix_server must be set when create_zabbix_proxy = true."
+    }
   }
 
   tags = {
@@ -207,6 +211,109 @@ resource "aws_instance" "fulltext" {
 
   tags = {
     Name = "${var.project}-${var.environment}-fulltext-${count.index + 1}"
+  }
+}
+
+# Security group for Zabbix Proxy (minimal: SSH optional, ICMP from VPC, egress all)
+resource "aws_security_group" "zabbix_sg" {
+  count       = var.create_zabbix_proxy ? 1 : 0
+  name        = "${var.project}-${var.environment}-zabbix-proxy"
+  description = "Zabbix Proxy SG"
+  vpc_id      = aws_vpc.main.id
+
+  # Optional SSH for troubleshooting, based on global toggle
+  dynamic "ingress" {
+    for_each = var.enable_ssh_access ? [1] : []
+    content {
+      description = "SSH"
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = var.allowed_ssh_cidr
+    }
+  }
+
+  # Allow ICMP within VPC for diagnostics
+  ingress {
+    description = "ICMP from VPC"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Zabbix Proxy EC2 (ARM, Amazon Linux 2023) - active mode
+resource "aws_instance" "zabbix_proxy" {
+  count                       = var.create_zabbix_proxy ? 1 : 0
+  ami                         = data.aws_ssm_parameter.al2023_ami_arm64.value
+  instance_type               = var.zabbix_proxy_instance_type
+  subnet_id                   = local.private_subnet_ids[0]
+  private_ip                  = cidrhost(var.private_subnets[0], 9)
+  vpc_security_group_ids      = [aws_security_group.zabbix_sg[0].id]
+  iam_instance_profile        = aws_iam_instance_profile.ec2.name
+  key_name                    = var.ec2_key_name
+  user_data_replace_on_change = true
+
+  user_data = <<-EOF
+              #!/bin/bash
+              set -euxo pipefail
+              dnf -y update
+
+              # Ensure SSM Agent is running (preinstalled on AL2023)
+              systemctl enable --now amazon-ssm-agent || true
+
+              # Optional SSH
+              dnf -y install openssh-server || true
+              systemctl enable --now sshd || true
+
+              # Install Zabbix Proxy (SQLite) via official repo for EL9/ARM
+              cat >/etc/yum.repos.d/zabbix.repo <<'REPO'
+              [zabbix]
+              name=Zabbix Official Repository - $basearch
+              baseurl=https://repo.zabbix.com/zabbix/7.0/rhel/9/$basearch/
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://repo.zabbix.com/zabbix-official-repo.key
+
+              [zabbix-noarch]
+              name=Zabbix Official Repository non-supported - noarch
+              baseurl=https://repo.zabbix.com/non-supported/rhel/9/noarch/
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://repo.zabbix.com/zabbix-official-repo.key
+              REPO
+
+              dnf clean all
+              dnf -y install zabbix-proxy-sqlite3
+
+              # Configure active proxy
+              PROXY_CONF=/etc/zabbix/zabbix_proxy.conf
+              sed -i "s/^#\?ProxyMode=.*/ProxyMode=0/" "$PROXY_CONF"
+              sed -i "s/^#\?Server=.*/Server=${var.zabbix_server}/" "$PROXY_CONF"
+              sed -i "s/^#\?Hostname=.*/Hostname=${var.project}-${var.environment}-zabbix-proxy/" "$PROXY_CONF"
+
+              # Ensure DB path exists (SQLite)
+              install -o zabbix -g zabbix -m 0750 -d /var/lib/zabbix
+
+              systemctl enable --now zabbix-proxy
+              EOF
+
+  lifecycle {
+    ignore_changes = [
+      ami,
+    ]
+  }
+
+  tags = {
+    Name = coalesce(var.zabbix_proxy_hostname, "${var.project}-${var.environment}-zabbix-proxy")
   }
 }
 
