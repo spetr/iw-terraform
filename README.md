@@ -17,14 +17,14 @@ See also: SERVICES.md for usage of services and AZ behavior.
 
 - Purpose: run a private Fargate service "docconvert" reachable only inside the VPC by EC2 app.
 - Discovery: Cloud Map private DNS at `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).
-- Security: no Internet egress from tasks (SG restricted to VPC CIDR). EC2 SG allowed to reach task SG on `docconvert_container_port`.
+- Security: Internet egress from tasks via NAT Gateway (tasks in private subnets). EC2 SG allowed to reach task SG on `docconvert_container_port`.
 - Cross-account ECR: image is pulled from `598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod` (another account). The source ECR repo must allow this account to pull.
-- Without Internet egress, to pull the image and write logs use VPC Interface Endpoints: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.
+- Optionally, to avoid NAT egress you can use VPC Interface Endpoints: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.
 
 Variables (defaults shown):
 ```
-docconvert_image            = "598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod:latest"
-docconvert_container_port   = 8080
+docconvert_image            = "598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod:2.27.18"  # repo only or repo:tag
+docconvert_container_port   = 25798
 docconvert_cpu              = 256
 docconvert_memory           = 512
 docconvert_desired_count    = 1
@@ -38,6 +38,8 @@ curl http://docconvert.svc.local:8080/health
 ### Utilities
 - scripts/list-ips.sh — vypíše všechny přidělené IP adresy (privátní, veřejné, IPv6) v nasazené VPC.
 	- Příklad: `scripts/list-ips.sh --just-ips`
+- scripts/unlock-tf.sh — zruší zaseknutý Terraform lock (lokální i DynamoDB).
+	- Příklad: `scripts/unlock-tf.sh -y`
 
 ## Usage
 

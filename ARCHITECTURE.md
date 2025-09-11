@@ -45,7 +45,7 @@ flowchart TD
   ALB -->|"HTTP 80 (behind HTTPS)"| EC2
 
   %% EC2 app calls private ECS service via Cloud Map
-  EC2 -->|"HTTP 8080 (docconvert.svc.local)"| ECS
+  EC2 -->|"HTTP 25798 (docconvert.svc.local)"| ECS
 
   %% East-west inside VPC
   EC2 -- "NFS 2049" --> EFS1
@@ -61,7 +61,7 @@ flowchart TD
 
   %% Egress
   EC2 -->|egress| NAT --> IGW
-  %% ECS docconvert has no Internet egress (SG restricted). For pulls/logs, use VPC Interface Endpoints (optional).
+  ECS -->|egress| NAT
 
   %% Fulltext storage attachment
   FT -- "/dev/sdf" --> EBSFT
@@ -96,4 +96,4 @@ Notes
  - SSH přístup: když `enable_ssh_access = true`, otevře se port 22 v SG pro EC2 (`allowed_ssh_cidr`) a volitelně i pro bastion SG.
  - Hostname: EC2 app i bastion si při bootstrapu nastaví hostname podle Name tagu a zachovají jej napříč rebooty.
  - ECS docconvert: běží jako Fargate v private subnets, bez ALB; přístupný jen z EC2 přes SG → SG na portu `docconvert_container_port` (default 8080). Název služby v privátním DNS (Cloud Map): `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).
- - Cross‑account ECR: image `598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod` je v jiném účtu; repozitář musí mít policy, která povolí pull pro tento účet/roli ECS execution. ECS execution role má `AmazonECSTaskExecutionRolePolicy` (auth do ECR, logy). ECS docconvert nemá Internet egress; chcete‑li tahat image a logovat bez NAT, použijte VPC Interface Endpoints: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.
+ - Cross‑account ECR: image `598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod` je v jiném účtu; repozitář musí mít policy, která povolí pull pro tento účet/roli ECS execution. ECS execution role má `AmazonECSTaskExecutionRolePolicy` (auth do ECR, logy). ECS docconvert má Internet egress přes NAT; volitelně můžete nasadit VPC Interface Endpoints (`ecr.api`, `ecr.dkr`, `logs`) pro privátní přístup bez NAT.

@@ -26,9 +26,9 @@ resource "aws_iam_role" "ecs_task_execution" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect = "Allow",
+        Effect    = "Allow",
         Principal = { Service = "ecs-tasks.amazonaws.com" },
-        Action = "sts:AssumeRole"
+        Action    = "sts:AssumeRole"
       }
     ]
   })
@@ -49,8 +49,8 @@ resource "aws_ecs_task_definition" "docconvert" {
 
   container_definitions = jsonencode([
     {
-      name  = "docconvert",
-      image = var.docconvert_image,
+      name      = "docconvert",
+      image     = var.docconvert_image,
       essential = true,
       portMappings = [{
         containerPort = var.docconvert_container_port,
@@ -82,12 +82,12 @@ resource "aws_security_group" "docconvert" {
     security_groups = [aws_security_group.ec2_sg.id]
   }
 
-  # Restrict all outbound to within VPC only (no Internet)
+  # Allow outbound to Internet via NAT Gateway (tasks are in private subnets)
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = [var.vpc_cidr]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -101,7 +101,7 @@ resource "aws_service_discovery_private_dns_namespace" "this" {
 resource "aws_service_discovery_service" "docconvert" {
   name = "docconvert"
   dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.this.id
+    namespace_id   = aws_service_discovery_private_dns_namespace.this.id
     routing_policy = "MULTIVALUE"
     dns_records {
       type = "A"
@@ -121,8 +121,8 @@ resource "aws_ecs_service" "docconvert" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [for s in aws_subnet.private : s.id]
-    security_groups = [aws_security_group.docconvert.id]
+    subnets          = [for s in aws_subnet.private : s.id]
+    security_groups  = [aws_security_group.docconvert.id]
     assign_public_ip = false
   }
 

@@ -73,3 +73,8 @@ output "ses_domain_identities" {
 output "ses_dkim_tokens_by_domain" {
   value = { for d, dk in aws_ses_domain_dkim.this : d => dk.dkim_tokens }
 }
+
+output "docconvert_dns_name" {
+  description = "Private DNS name for ECS docconvert service (Cloud Map)."
+  value       = "docconvert.${var.service_discovery_namespace}"
+}

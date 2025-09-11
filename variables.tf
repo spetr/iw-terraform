@@ -118,15 +118,15 @@ variable "ec2_key_name" {
 ############################################
 
 variable "docconvert_image" {
-  description = "ECR image (with tag) for docconvert container."
+  description = "ECR image repository for docconvert. If a tag is provided (repo:tag), it takes precedence."
   type        = string
-  default     = "598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod:latest"
+  default     = "598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod:2.27.18"
 }
 
 variable "docconvert_container_port" {
   description = "Container port exposed by docconvert."
   type        = number
-  default     = 8080
+  default     = 25797
 }
 
 variable "docconvert_cpu" {
@@ -138,7 +138,7 @@ variable "docconvert_cpu" {
 variable "docconvert_memory" {
   description = "Fargate task memory (MiB) (e.g., 512, 1024)."
   type        = number
-  default     = 512
+  default     = 1024
 }
 
 variable "docconvert_desired_count" {
