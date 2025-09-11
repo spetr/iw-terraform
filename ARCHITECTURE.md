@@ -21,6 +21,7 @@ flowchart TD
         EC2["EC2 App instance(s)"]
         ECS["ECS Fargate (docconvert)"]
         FT["Fulltext EC2 instance(s)"]
+        ZBX["Zabbix Proxy (EC2, active)"]
         Bastion["Bastion (SSM + optional SSH)"]
         EFS1["EFS (data)"]
         EFS2["EFS (config)"]
@@ -32,6 +33,7 @@ flowchart TD
       end
     end
     SES["Amazon SES"]
+    ZabbixSrv["Zabbix Server (external)"]
   end
 
   Internet <--> IGW
@@ -62,6 +64,7 @@ flowchart TD
   %% Egress
   EC2 -->|egress| NAT --> IGW
   ECS -->|egress| NAT
+  ZBX -->|egress TCP 10051| NAT --> IGW --> ZabbixSrv
 
   %% Fulltext storage attachment
   FT -- "/dev/sdf" --> EBSFT
@@ -72,7 +75,7 @@ flowchart TD
 
   %% Styling for optional components
   classDef optional fill:#f7f7f7,stroke:#888,stroke-width:1px,stroke-dasharray: 5 5,color:#333
-  class EFS3,ValkeyFT,SES,CVPN,Bastion optional
+  class EFS3,ValkeyFT,SES,CVPN,Bastion,ZBX optional
 ```
 
 Legend
@@ -84,6 +87,7 @@ Legend
 
 - Vždy nasazeno: VPC, public/private subnets, IGW, NLB, ALB (internal), EC2 App, ECS Fargate (docconvert), RDS, Valkey (App – single/HA dle počtu app instancí), EFS (data, config), NAT (single nebo per‑AZ podle `app_instance_count`).
 - Volitelné: Bastion (SSM‑only), Client VPN endpoint, EFS archive, Valkey (Fulltext, HA), Amazon SES, Fulltext EC2 + jeho EBS svazky (dle `fulltext_instance_count`).
+ - Zabbix Proxy (active): volitelný; nasazuje se jako EC2 v privátní síti a navazuje odchozí spojení na externí Zabbix Server (`zabbix_server`). Umožňuje monitoring EC2, RDS a služby docconvert (ECS) přes SG pravidla.
  - Amazon SES: volitelný; aplikace odesílá přes AWS SDK (HTTPS) nebo SMTP, odesílatel musí být ověřen (email/doména, DKIM doporučeno).
 
 Notes
@@ -93,6 +97,7 @@ Notes
 - Valkey (App): když `app_instance_count <= 1`, jednonodový cluster; když `app_instance_count > 1`, Multi‑AZ replication group s automatickým failoverem.
 - Valkey (Fulltext): vytváří se jen když `fulltext_instance_count >= 2` a nasazuje se jako Multi‑AZ replication group.
 - Security Groups definované v `network.tf` omezují provoz; ICMP v rámci VPC je povolen pro diagnostiku.
+ - Zabbix Proxy: zapíná se přes `zabbix_proxy_enabled = true`; nastavte `zabbix_server` (DNS/IP externího serveru) a případně `zabbix_proxy_hostname`. SG dovolují přístup z proxy na EC2 (monitoring), RDS (TCP 3306) a ECS docconvert.
  - SSH přístup: když `enable_ssh_access = true`, otevře se port 22 v SG pro EC2 (`allowed_ssh_cidr`) a volitelně i pro bastion SG.
  - Hostname: EC2 app i bastion si při bootstrapu nastaví hostname podle Name tagu a zachovají jej napříč rebooty.
  - ECS docconvert: běží jako Fargate v private subnets, bez ALB; přístupný jen z EC2 přes SG → SG na portu `docconvert_container_port` (default 8080). Název služby v privátním DNS (Cloud Map): `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).

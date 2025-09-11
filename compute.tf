@@ -88,10 +88,6 @@ resource "aws_instance" "app" {
       ami,
       user_data,
     ]
-    precondition {
-      condition     = var.zabbix_server != null && var.zabbix_server != ""
-      error_message = "zabbix_server must be set when create_zabbix_proxy = true."
-    }
   }
 
   tags = {
@@ -216,7 +212,7 @@ resource "aws_instance" "fulltext" {
 
 # Security group for Zabbix Proxy (minimal: SSH optional, ICMP from VPC, egress all)
 resource "aws_security_group" "zabbix_sg" {
-  count       = var.create_zabbix_proxy ? 1 : 0
+  count       = var.zabbix_proxy_enabled ? 1 : 0
   name        = "${var.project}-${var.environment}-zabbix-proxy"
   description = "Zabbix Proxy SG"
   vpc_id      = aws_vpc.main.id
@@ -252,7 +248,7 @@ resource "aws_security_group" "zabbix_sg" {
 
 # Zabbix Proxy EC2 (ARM, Amazon Linux 2023) - active mode
 resource "aws_instance" "zabbix_proxy" {
-  count                       = var.create_zabbix_proxy ? 1 : 0
+  count                       = var.zabbix_proxy_enabled ? 1 : 0
   ami                         = data.aws_ssm_parameter.al2023_ami_arm64.value
   instance_type               = var.zabbix_proxy_instance_type
   subnet_id                   = local.private_subnet_ids[0]
@@ -275,22 +271,7 @@ resource "aws_instance" "zabbix_proxy" {
               systemctl enable --now sshd || true
 
               # Install Zabbix Proxy (SQLite) via official repo for EL9/ARM
-              cat >/etc/yum.repos.d/zabbix.repo <<'REPO'
-              [zabbix]
-              name=Zabbix Official Repository - $basearch
-              baseurl=https://repo.zabbix.com/zabbix/7.0/rhel/9/$basearch/
-              enabled=1
-              gpgcheck=1
-              gpgkey=https://repo.zabbix.com/zabbix-official-repo.key
-
-              [zabbix-noarch]
-              name=Zabbix Official Repository non-supported - noarch
-              baseurl=https://repo.zabbix.com/non-supported/rhel/9/noarch/
-              enabled=1
-              gpgcheck=1
-              gpgkey=https://repo.zabbix.com/zabbix-official-repo.key
-              REPO
-
+              rpm -Uvh https://repo.zabbix.com/zabbix/7.0/amazonlinux/2023/x86_64/zabbix-release-latest-7.0.amzn2023.noarch.rpm
               dnf clean all
               dnf -y install zabbix-proxy-sqlite3
 
@@ -309,7 +290,12 @@ resource "aws_instance" "zabbix_proxy" {
   lifecycle {
     ignore_changes = [
       ami,
+      user_data,
     ]
+    precondition {
+      condition     = (!var.zabbix_proxy_enabled) || (var.zabbix_server != null && var.zabbix_server != "")
+      error_message = "zabbix_server must be set when zabbix_proxy_enabled = true."
+    }
   }
 
   tags = {

@@ -133,7 +133,7 @@ Volitelně: EFS archive (pokud povoleno `enable_efs_archive = true`)
 
 ## Zabbix Proxy (active)
 - Volitelný Zabbix Proxy na EC2 (ARM, Amazon Linux 2023).
-- Vytvoření: `create_zabbix_proxy = true`, nastavte `zabbix_server` (DNS/IP Zabbix serveru) a volitelně `zabbix_proxy_hostname`.
+- Vytvoření: `zabbix_proxy_enabled = true`, nastavte `zabbix_server` (DNS/IP Zabbix serveru) a volitelně `zabbix_proxy_hostname`.
 - Instalace: user_data přidá Zabbix repo (EL9/ARM) a balíček `zabbix-proxy-sqlite3`, proxy běží v active módu (`ProxyMode=0`).
 - SG: minimální, SSH dle `enable_ssh_access` a ICMP z VPC; egress all (proxy navazuje odchozí spojení na Zabbix server).
 - Výstupy: `zabbix_proxy_instance_id`, `zabbix_proxy_private_ip`.

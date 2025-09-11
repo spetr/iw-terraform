@@ -172,7 +172,7 @@ resource "aws_security_group" "ec2_sg" {
 
   # Allow all traffic from Zabbix Proxy for monitoring (app + fulltext share this SG)
   dynamic "ingress" {
-    for_each = var.create_zabbix_proxy ? [1] : []
+    for_each = var.zabbix_proxy_enabled ? [1] : []
     content {
       description     = "All from Zabbix Proxy"
       from_port       = 0
@@ -254,7 +254,7 @@ resource "aws_security_group" "rds_sg" {
 
   # Allow SQL from Zabbix Proxy for monitoring
   dynamic "ingress" {
-    for_each = var.create_zabbix_proxy ? [1] : []
+    for_each = var.zabbix_proxy_enabled ? [1] : []
     content {
       description     = "SQL 3306 from Zabbix Proxy"
       from_port       = 3306

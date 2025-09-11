@@ -158,7 +158,7 @@ variable "service_discovery_namespace" {
 ############################################
 
 # Create a small Zabbix Proxy EC2 instance (active mode).
-variable "create_zabbix_proxy" {
+variable "zabbix_proxy_enabled" {
   description = "Whether to create a Zabbix Proxy EC2 instance (active proxy)."
   type        = bool
   default     = false
@@ -168,7 +168,7 @@ variable "create_zabbix_proxy" {
 variable "zabbix_server" {
   description = "Zabbix Server hostname or IP (the proxy connects to it in active mode)."
   type        = string
-  default     = "zabbix.example.com"
+  default     = null
 }
 
 # EC2 instance type for Zabbix Proxy (ARM preferred).

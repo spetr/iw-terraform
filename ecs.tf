@@ -105,7 +105,7 @@ resource "aws_security_group" "docconvert" {
   }
 
   dynamic "ingress" {
-    for_each = var.create_zabbix_proxy ? [1] : []
+    for_each = var.zabbix_proxy_enabled ? [1] : []
     content {
       description     = "From Zabbix Proxy"
       from_port       = var.docconvert_container_port
