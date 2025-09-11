@@ -102,8 +102,8 @@ Dostupnost (AZ)
 ## ECS Fargate (docconvert) – privátní služba
 - Přístupná pouze z VPC; určena pro volání z EC2 aplikace.
 - Objevitelná přes Cloud Map: `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).
-- Výchozí port: `docconvert_container_port` (default 8080).
-- SG: povolen ingress z EC2 SG → ECS SG na `docconvert_container_port`.
+- Výchozí port: `docconvert_container_port` (default 25797).
+- SG: povolen ingress z EC2 SG a volitelně z Bastion SG (`create_bastion = true`) a Client VPN SG (`enable_client_vpn = true`) → ECS SG na `docconvert_container_port`.
 - Egress: přes NAT Gateway (Internet egress povolen; tasks jsou v private subnets bez public IP).
 - Cross‑account ECR: image je v cizím účtu (`598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod`). Repo policy musí povolit pull pro tento účet/roli.
 - Volitelně lze místo NAT použít VPC Interface Endpoints pro tahání image a logování: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.
@@ -111,7 +111,7 @@ Dostupnost (AZ)
 
 Příklad volání z EC2:
 ```bash
-curl http://docconvert.svc.local:8080/health
+curl http://docconvert.svc.local:25797/health
 ```
 
 ---

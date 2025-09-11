@@ -82,6 +82,28 @@ resource "aws_security_group" "docconvert" {
     security_groups = [aws_security_group.ec2_sg.id]
   }
 
+  dynamic "ingress" {
+    for_each = var.create_bastion ? [1] : []
+    content {
+      description     = "From Bastion"
+      from_port       = var.docconvert_container_port
+      to_port         = var.docconvert_container_port
+      protocol        = "tcp"
+      security_groups = [aws_security_group.bastion_sg[0].id]
+    }
+  }
+
+  dynamic "ingress" {
+    for_each = var.enable_client_vpn ? [1] : []
+    content {
+      description     = "From Client VPN"
+      from_port       = var.docconvert_container_port
+      to_port         = var.docconvert_container_port
+      protocol        = "tcp"
+      security_groups = [aws_security_group.client_vpn_sg[0].id]
+    }
+  }
+
   # Allow outbound to Internet via NAT Gateway (tasks are in private subnets)
   egress {
     from_port   = 0
