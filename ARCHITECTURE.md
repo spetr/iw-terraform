@@ -7,7 +7,7 @@ flowchart TD
   Internet[[Internet]]
 
   subgraph AWS["AWS Account (Region)"]
-    subgraph VPC["VPC (10.0.0.0/16)"]
+  subgraph VPC["VPC (10.0.0.0/16)"]
       IGW["Internet Gateway"]
 
       subgraph Public["Public Subnets (AZ a,b)"]
@@ -19,6 +19,7 @@ flowchart TD
       subgraph Private["Private Subnets (AZ a,b)"]
         ALB["Internal ALB (HTTP 80 → redirect to HTTPS 443; TLS via ACM)"]
         EC2["EC2 App instance(s)"]
+        ECS["ECS Fargate (docconvert)"]
         FT["Fulltext EC2 instance(s)"]
         Bastion["Bastion (SSM + optional SSH)"]
         EFS1["EFS (data)"]
@@ -43,6 +44,9 @@ flowchart TD
   %% Load balancer to EC2
   ALB -->|"HTTP 80 (behind HTTPS)"| EC2
 
+  %% EC2 app calls private ECS service via Cloud Map
+  EC2 -->|"HTTP 8080 (docconvert.svc.local)"| ECS
+
   %% East-west inside VPC
   EC2 -- "NFS 2049" --> EFS1
   EC2 -- "NFS 2049" --> EFS2
@@ -57,6 +61,7 @@ flowchart TD
 
   %% Egress
   EC2 -->|egress| NAT --> IGW
+  %% ECS docconvert has no Internet egress (SG restricted). For pulls/logs, use VPC Interface Endpoints (optional).
 
   %% Fulltext storage attachment
   FT -- "/dev/sdf" --> EBSFT
@@ -72,12 +77,12 @@ flowchart TD
 
 Legend
 - Public subnets: NLB (EIP), NAT GW, Client VPN assoc.
-- Private subnets: Internal ALB, EC2, RDS, Valkey (App/Fulltext), EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
+- Private subnets: Internal ALB, EC2, ECS Fargate (docconvert), RDS, Valkey (App/Fulltext), EFS, Bastion (bez veřejné IP; přístup přes SSM; SSH volitelně dle flagu).
 - Egress z privátních EC2 jde přes NAT Gateway do Internetu.
 - S3 Gateway VPC Endpoint je připojen k private route tables.
 - Uzly se zvýrazněným (čárkovaným) okrajem jsou nepovinné a vytvářejí se jen při zapnutí příslušných voleb (např. EFS archive, Valkey pro Fulltext).
 
-- Vždy nasazeno: VPC, public/private subnets, IGW, NLB, ALB (internal), EC2 App, RDS, Valkey (App – single/HA dle počtu app instancí), EFS (data, config), NAT (single nebo per‑AZ podle `app_instance_count`).
+- Vždy nasazeno: VPC, public/private subnets, IGW, NLB, ALB (internal), EC2 App, ECS Fargate (docconvert), RDS, Valkey (App – single/HA dle počtu app instancí), EFS (data, config), NAT (single nebo per‑AZ podle `app_instance_count`).
 - Volitelné: Bastion (SSM‑only), Client VPN endpoint, EFS archive, Valkey (Fulltext, HA), Amazon SES, Fulltext EC2 + jeho EBS svazky (dle `fulltext_instance_count`).
  - Amazon SES: volitelný; aplikace odesílá přes AWS SDK (HTTPS) nebo SMTP, odesílatel musí být ověřen (email/doména, DKIM doporučeno).
 
@@ -90,3 +95,5 @@ Notes
 - Security Groups definované v `network.tf` omezují provoz; ICMP v rámci VPC je povolen pro diagnostiku.
  - SSH přístup: když `enable_ssh_access = true`, otevře se port 22 v SG pro EC2 (`allowed_ssh_cidr`) a volitelně i pro bastion SG.
  - Hostname: EC2 app i bastion si při bootstrapu nastaví hostname podle Name tagu a zachovají jej napříč rebooty.
+ - ECS docconvert: běží jako Fargate v private subnets, bez ALB; přístupný jen z EC2 přes SG → SG na portu `docconvert_container_port` (default 8080). Název služby v privátním DNS (Cloud Map): `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).
+ - Cross‑account ECR: image `598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod` je v jiném účtu; repozitář musí mít policy, která povolí pull pro tento účet/roli ECS execution. ECS execution role má `AmazonECSTaskExecutionRolePolicy` (auth do ECR, logy). ECS docconvert nemá Internet egress; chcete‑li tahat image a logovat bez NAT, použijte VPC Interface Endpoints: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.

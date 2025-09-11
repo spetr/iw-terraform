@@ -114,6 +114,46 @@ variable "ec2_key_name" {
 }
 
 ############################################
+# ECS servics
+############################################
+
+variable "docconvert_image" {
+  description = "ECR image (with tag) for docconvert container."
+  type        = string
+  default     = "598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod:latest"
+}
+
+variable "docconvert_container_port" {
+  description = "Container port exposed by docconvert."
+  type        = number
+  default     = 8080
+}
+
+variable "docconvert_cpu" {
+  description = "Fargate task CPU units (e.g., 256, 512)."
+  type        = number
+  default     = 256
+}
+
+variable "docconvert_memory" {
+  description = "Fargate task memory (MiB) (e.g., 512, 1024)."
+  type        = number
+  default     = 512
+}
+
+variable "docconvert_desired_count" {
+  description = "Desired number of docconvert tasks."
+  type        = number
+  default     = 1
+}
+
+variable "service_discovery_namespace" {
+  description = "Private DNS namespace for ECS service discovery (e.g., svc.local)."
+  type        = string
+  default     = "svc.local"
+}
+
+############################################
 # Storage (EFS)
 ############################################
 

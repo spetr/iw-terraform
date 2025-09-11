@@ -7,10 +7,33 @@ This Terraform stack creates:
 - RDS MariaDB in private subnets
 - ElastiCache Valkey in private subnets
 - ALB for HTTP/HTTPS to EC2, NLB for TCP ports: 25, 465, 587, 143, 993, 110, 995
+- ECS Fargate service (docconvert) in private subnets; consumed by EC2 app via Cloud Map (no Internet egress)
 - AWS Client VPN endpoint associated to public subnets for access into VPC
 
 See also: ARCHITECTURE.md for a Mermaid diagram of the architecture.
 See also: SERVICES.md for usage of services and AZ behavior.
+
+### ECS docconvert (private-only)
+
+- Purpose: run a private Fargate service "docconvert" reachable only inside the VPC by EC2 app.
+- Discovery: Cloud Map private DNS at `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).
+- Security: no Internet egress from tasks (SG restricted to VPC CIDR). EC2 SG allowed to reach task SG on `docconvert_container_port`.
+- Cross-account ECR: image is pulled from `598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod` (another account). The source ECR repo must allow this account to pull.
+- Without Internet egress, to pull the image and write logs use VPC Interface Endpoints: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.
+
+Variables (defaults shown):
+```
+docconvert_image            = "598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod:latest"
+docconvert_container_port   = 8080
+docconvert_cpu              = 256
+docconvert_memory           = 512
+docconvert_desired_count    = 1
+service_discovery_namespace = "svc.local"
+```
+Usage from EC2 app:
+```
+curl http://docconvert.svc.local:8080/health
+```
 
 ### Utilities
 - scripts/list-ips.sh — vypíše všechny přidělené IP adresy (privátní, veřejné, IPv6) v nasazené VPC.

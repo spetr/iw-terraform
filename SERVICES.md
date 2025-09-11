@@ -14,6 +14,7 @@ Užitečné výstupy z Terraformu:
 - Valkey endpoint: `terraform output -raw valkey_endpoint`
 - EFS (data): `terraform output -raw efs_data_id`
 - EFS (config): `terraform output -raw efs_config_id`
+ - ECS service discovery hostname: `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`)
 
 ---
 
@@ -95,6 +96,22 @@ redis-cli -h "$(terraform output -raw valkey_endpoint)" -p 6379 ping
 
 Dostupnost (AZ)
 - Aktuálně single‑node. Pro HA použijte Replication Group s Multi‑AZ (primary + replica, automatic failover).
+
+---
+
+## ECS Fargate (docconvert) – privátní služba
+- Přístupná pouze z VPC; určena pro volání z EC2 aplikace.
+- Objevitelná přes Cloud Map: `docconvert.<service_discovery_namespace>` (default `docconvert.svc.local`).
+- Výchozí port: `docconvert_container_port` (default 8080).
+- SG: povolen ingress z EC2 SG → ECS SG na `docconvert_container_port`.
+- Egress: omezen na VPC (`var.vpc_cidr`); služba nemá Internet egress.
+- Cross‑account ECR: image je v cizím účtu (`598044228206.dkr.ecr.eu-central-1.amazonaws.com/mundi/prod`). Repo policy musí povolit pull pro tento účet/roli.
+- Bez Internet egress doporučeny VPC Interface Endpoints pro tahání image a logování: `com.amazonaws.<region>.ecr.api`, `com.amazonaws.<region>.ecr.dkr`, `com.amazonaws.<region>.logs`.
+
+Příklad volání z EC2:
+```bash
+curl http://docconvert.svc.local:8080/health
+```
 
 ---
 
