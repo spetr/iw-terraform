@@ -269,6 +269,9 @@ resource "aws_lb_target_group_attachment" "nlb_to_alb_80" {
   target_group_arn = aws_lb_target_group.nlb_to_alb_80.arn
   target_id        = aws_lb.alb.arn
   port             = 80
+
+  # Ensure the ALB has a matching listener before registering it as a target
+  depends_on = [aws_lb_listener.http_redirect]
 }
 
 resource "aws_lb_listener" "nlb_http_to_alb" {
@@ -294,6 +297,9 @@ resource "aws_lb_target_group_attachment" "nlb_to_alb_443" {
   target_group_arn = aws_lb_target_group.nlb_to_alb_443.arn
   target_id        = aws_lb.alb.arn
   port             = 443
+
+  # Ensure the ALB has a matching listener before registering it as a target
+  depends_on = [aws_lb_listener.https]
 }
 
 resource "aws_lb_listener" "nlb_https_to_alb" {
