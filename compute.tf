@@ -254,6 +254,17 @@ resource "aws_security_group" "zabbix_sg" {
   }
 }
 
+resource "aws_security_group_rule" "ec2_allow_zabbix" {
+  count                    = var.zabbix_proxy_enabled ? 1 : 0
+  description              = "All from Zabbix Proxy"
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 0
+  protocol                 = "-1"
+  security_group_id        = aws_security_group.ec2_sg.id
+  source_security_group_id = aws_security_group.zabbix_sg[0].id
+}
+
 # Zabbix Proxy EC2 (ARM, Amazon Linux 2023) - active mode
 resource "aws_instance" "zabbix_proxy" {
   count                       = var.zabbix_proxy_enabled ? 1 : 0

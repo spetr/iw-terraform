@@ -170,18 +170,6 @@ resource "aws_security_group" "ec2_sg" {
     cidr_blocks = [var.vpc_cidr]
   }
 
-  # Allow all traffic from Zabbix Proxy for monitoring (app + fulltext share this SG)
-  dynamic "ingress" {
-    for_each = var.zabbix_proxy_enabled ? [1] : []
-    content {
-      description     = "All from Zabbix Proxy"
-      from_port       = 0
-      to_port         = 0
-      protocol        = "-1"
-      security_groups = [aws_security_group.zabbix_sg[0].id]
-    }
-  }
-
   # HTTPS is always handled by ALB; no NLB 443 passthrough needed
 
   dynamic "ingress" {
