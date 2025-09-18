@@ -238,6 +238,14 @@ resource "aws_security_group" "zabbix_sg" {
     cidr_blocks = [var.vpc_cidr]
   }
 
+  ingress {
+    description     = "Zabbix server from app/fulltext EC2"
+    from_port       = 10051
+    to_port         = 10051
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ec2_sg.id]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
