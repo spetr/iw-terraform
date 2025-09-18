@@ -5,12 +5,25 @@ locals {
   # TLS ports will always terminate on the NLB using ACM cert
   mail_tls_ports = [465, 993, 995]
 
+  # Map TLS listener ports to the plaintext ports used by backend services
+  mail_tls_target_map = {
+    "465" = 25  # SMTPS → SMTP
+    "993" = 143 # IMAPS → IMAP
+    "995" = 110 # POP3S → POP3
+  }
+
   # NLB listeners cover only mail ports now (no 443 passthrough needed as ALB always has HTTPS)
   nlb_ports = local.mail_ports
 
   # Partition NLB ports into TCP (non-TLS) and TLS
   nlb_tcp_ports = [for p in local.nlb_ports : p if !contains(local.mail_tls_ports, p)]
   nlb_tls_ports = [for p in local.nlb_ports : p if contains(local.mail_tls_ports, p)]
+
+  # Resolve per-listener backend port (TLS listeners downshift to plaintext targets)
+  nlb_target_ports = {
+    for port in local.nlb_ports :
+    tostring(port) => try(local.mail_tls_target_map[tostring(port)], port)
+  }
 }
 
 # Application Load Balancer for HTTP/HTTPS
@@ -218,7 +231,7 @@ resource "aws_lb" "nlb" {
 resource "aws_lb_target_group" "nlb_tg" {
   for_each    = toset([for p in local.nlb_ports : tostring(p)])
   name        = "${var.project}-${var.environment}-nlb-tg-${each.key}"
-  port        = tonumber(each.key)
+  port        = local.nlb_target_ports[each.key]
   protocol    = "TCP"
   vpc_id      = aws_vpc.main.id
   target_type = "instance"
@@ -333,5 +346,5 @@ resource "aws_lb_target_group_attachment" "nlb_ec2" {
 
   target_group_arn = aws_lb_target_group.nlb_tg[each.value.port].arn
   target_id        = aws_instance.app[each.value.index].id
-  port             = tonumber(each.value.port)
+  port             = local.nlb_target_ports[each.value.port]
 }
