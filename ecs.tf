@@ -12,16 +12,16 @@
 ############################################
 
 resource "aws_ecs_cluster" "docconvert" {
-  name = "${var.project}-${var.environment}-ecs"
+  name = "${local.name_prefix}-ecs"
 }
 
 resource "aws_cloudwatch_log_group" "docconvert" {
-  name              = "/ecs/${var.project}-${var.environment}-docconvert"
+  name              = "/ecs/${local.name_prefix}-docconvert"
   retention_in_days = 14
 }
 
 resource "aws_iam_role" "ecs_task_execution" {
-  name = "${var.project}-${var.environment}-ecs-execution"
+  name = "${local.name_prefix}-ecs-execution"
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -40,7 +40,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
 }
 
 resource "aws_ecs_task_definition" "docconvert" {
-  family                   = "${var.project}-${var.environment}-docconvert"
+  family                   = "${local.name_prefix}-docconvert"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = tostring(var.docconvert_cpu)
@@ -70,7 +70,7 @@ resource "aws_ecs_task_definition" "docconvert" {
 }
 
 resource "aws_security_group" "docconvert" {
-  name        = "${var.project}-${var.environment}-docconvert"
+  name        = "${local.name_prefix}-docconvert"
   description = "Security group for docconvert ECS tasks"
   vpc_id      = aws_vpc.main.id
 
@@ -147,7 +147,7 @@ resource "aws_service_discovery_service" "docconvert" {
 }
 
 resource "aws_ecs_service" "docconvert" {
-  name            = "${var.project}-${var.environment}-docconvert"
+  name            = "${local.name_prefix}-docconvert"
   cluster         = aws_ecs_cluster.docconvert.id
   task_definition = aws_ecs_task_definition.docconvert.arn
   desired_count   = var.docconvert_desired_count

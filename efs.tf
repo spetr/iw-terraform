@@ -4,7 +4,7 @@ resource "aws_efs_file_system" "data" {
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" && var.efs_provisioned_throughput_mibps != null ? var.efs_provisioned_throughput_mibps : null
   encrypted                       = true
   tags = {
-    Name = "${var.project}-${var.environment}-efs-data"
+    Name = "${local.name_prefix}-efs-data"
   }
 }
 
@@ -14,7 +14,7 @@ resource "aws_efs_file_system" "config" {
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" && var.efs_provisioned_throughput_mibps != null ? var.efs_provisioned_throughput_mibps : null
   encrypted                       = true
   tags = {
-    Name = "${var.project}-${var.environment}-efs-config"
+    Name = "${local.name_prefix}-efs-config"
   }
 }
 
@@ -40,7 +40,7 @@ resource "aws_efs_file_system" "archive" {
   provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" && var.efs_provisioned_throughput_mibps != null ? var.efs_provisioned_throughput_mibps : null
   encrypted                       = true
   tags = {
-    Name = "${var.project}-${var.environment}-efs-archive"
+    Name = "${local.name_prefix}-efs-archive"
   }
 }
 

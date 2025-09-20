@@ -1,14 +1,20 @@
+locals {
+  rds_identifier        = substr(format("%s-mariadb", local.name_prefix), 0, 63)
+  rds_subnet_group_name = substr(format("%s-db-subnets", local.name_prefix), 0, 63)
+  rds_param_name_prefix = substr(format("%s-mariadb-params-", local.name_prefix), 0, 63)
+  rds_monitor_role_name = substr(format("%s-rds-enhanced-monitoring", local.name_prefix), 0, 64)
+}
+
 resource "aws_db_subnet_group" "this" {
-  name       = "${var.project}-${var.environment}-db-subnets"
+  name       = local.rds_subnet_group_name
   subnet_ids = [for s in aws_subnet.private : s.id]
   tags = {
-    Name = "${var.project}-${var.environment}-db-subnets"
+    Name = local.rds_subnet_group_name
   }
 }
 
-# IAM role for RDS Enhanced Monitoring
 resource "aws_iam_role" "rds_enhanced_monitoring" {
-  name = "${var.project}-${var.environment}-rds-enhanced-monitoring"
+  name = local.rds_monitor_role_name
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [{
@@ -24,17 +30,15 @@ resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
 }
 
-## Determine correct parameter group family for MariaDB engine/version
 data "aws_rds_engine_version" "mariadb" {
   engine  = "mariadb"
   version = "11.8"
 }
 
-## Parameter group to configure DB parameters (e.g., max_connections)
 resource "aws_db_parameter_group" "mariadb" {
-  name_prefix = "${var.project}-${var.environment}-mariadb-params-"
+  name_prefix = local.rds_param_name_prefix
   family      = data.aws_rds_engine_version.mariadb.parameter_group_family
-  description = "${var.project}/${var.environment} MariaDB parameter group"
+  description = format("%s MariaDB parameter group", local.name_prefix)
 
   lifecycle {
     create_before_destroy = true
@@ -45,7 +49,6 @@ resource "aws_db_parameter_group" "mariadb" {
     value = tostring(var.db_max_connections)
   }
 
-  # Allow non‑TLS connections (disable TLS requirement)
   parameter {
     name  = "require_secure_transport"
     value = "0"
@@ -53,7 +56,7 @@ resource "aws_db_parameter_group" "mariadb" {
 }
 
 resource "aws_db_instance" "mariadb" {
-  identifier              = "${var.project}-${var.environment}-mariadb"
+  identifier              = local.rds_identifier
   engine                  = "mariadb"
   engine_version          = "11.8"
   instance_class          = var.db_instance_class
@@ -75,11 +78,10 @@ resource "aws_db_instance" "mariadb" {
   backup_retention_period = 7
   apply_immediately       = true
 
-  # Enhanced Monitoring
   monitoring_interval = var.db_monitoring_interval
   monitoring_role_arn = var.db_monitoring_interval == 0 ? null : aws_iam_role.rds_enhanced_monitoring.arn
 
   tags = {
-    Name = "${var.project}-${var.environment}-mariadb"
+    Name = local.rds_identifier
   }
 }

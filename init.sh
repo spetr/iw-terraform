@@ -178,8 +178,30 @@ if [[ -f backend.hcl ]]; then
   object_lock_mode=$(read_hcl_value object_lock_mode backend.hcl || true)
   object_lock_retention_days=$(read_hcl_value object_lock_retention_days backend.hcl || true)
 
-  if [[ -z "${bucket}" || -z "${key}" || -z "${region}" ]]; then
-    echo "Error: 'bucket', 'key', and 'region' must be set in backend.hcl." >&2
+  tfvars_project=$(read_hcl_value project terraform.tfvars || true)
+  tfvars_environment=$(read_hcl_value environment terraform.tfvars || true)
+  tfvars_region=$(read_hcl_value aws_region terraform.tfvars || true)
+
+  if [[ -z "${key}" && -n "${tfvars_project}" && -n "${tfvars_environment}" ]]; then
+    key="${tfvars_project}/${tfvars_environment}/terraform.tfstate"
+  fi
+
+  if [[ -z "${region}" && -n "${tfvars_region}" ]]; then
+    region="${tfvars_region}"
+  fi
+
+  if [[ -z "${bucket}" ]]; then
+    echo "Error: 'bucket' must be set in backend.hcl." >&2
+    exit 1
+  fi
+
+  if [[ -z "${key}" ]]; then
+    echo "Error: Backend key not provided. Set it in backend.hcl or ensure project and environment are defined in terraform.tfvars." >&2
+    exit 1
+  fi
+
+  if [[ -z "${region}" ]]; then
+    echo "Error: AWS region not provided. Set it in backend.hcl or terraform.tfvars (aws_region)." >&2
     exit 1
   fi
 

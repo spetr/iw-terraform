@@ -7,8 +7,8 @@
 ############################################
 
 resource "aws_resourcegroups_group" "application_all" {
-  name        = "${var.project}-${var.environment}-application"
-  description = "${var.project}-${var.environment}-application aggregating all tagged resources"
+  name        = "${local.name_prefix}-application"
+  description = "${local.name_prefix}-application aggregating all tagged resources"
 
   # Query groups all resources that carry our default tags
   resource_query {
@@ -31,6 +31,6 @@ resource "aws_resourcegroups_group" "application_all" {
   }
 
   tags = {
-    Name = "${var.project}-${var.environment}-application"
+    Name = "${local.name_prefix}-application"
   }
 }

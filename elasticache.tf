@@ -1,12 +1,12 @@
 resource "aws_elasticache_subnet_group" "this" {
-  name       = "${var.project}-${var.environment}-valkey-subnets"
+  name       = "${local.name_prefix}-valkey-subnets"
   subnet_ids = [for s in aws_subnet.private : s.id]
 }
 
 # When there is only 1 app instance, deploy Valkey as a single-node cluster
 resource "aws_elasticache_cluster" "valkey_app" {
   count                = var.app_instance_count > 1 ? 0 : 1
-  cluster_id           = "${var.project}-${var.environment}-valkey"
+  cluster_id           = "${local.name_prefix}-valkey"
   engine               = "valkey"
   engine_version       = var.valkey_app_engine_version
   node_type            = var.valkey_app_node_type
@@ -17,7 +17,7 @@ resource "aws_elasticache_cluster" "valkey_app" {
   security_group_ids   = [aws_security_group.valkey_sg.id]
 
   tags = {
-    Name = "${var.project}-${var.environment}-valkey-app"
+    Name = "${local.name_prefix}-valkey-app"
   }
 }
 
@@ -25,8 +25,8 @@ resource "aws_elasticache_cluster" "valkey_app" {
 resource "aws_elasticache_replication_group" "valkey_app" {
   count = var.app_instance_count > 1 ? 1 : 0
   # Use a distinct identifier to avoid clashes with the single-node cluster identifier
-  replication_group_id       = "${var.project}-${var.environment}-valkey-app-rg"
-  description                = "${var.project}-${var.environment} Valkey (Multi-AZ)"
+  replication_group_id       = "${local.name_prefix}-valkey-app-rg"
+  description                = "${local.name_prefix} Valkey (Multi-AZ)"
   engine                     = "valkey"
   engine_version             = var.valkey_app_engine_version
   node_type                  = var.valkey_app_node_type
@@ -40,15 +40,15 @@ resource "aws_elasticache_replication_group" "valkey_app" {
   security_group_ids         = [aws_security_group.valkey_sg.id]
 
   tags = {
-    Name = "${var.project}-${var.environment}-valkey"
+    Name = "${local.name_prefix}-valkey"
   }
 }
 
 # Dedicated Valkey for Fulltext (HA across AZs) when there are 2+ fulltext instances
 resource "aws_elasticache_replication_group" "valkey_fulltext" {
   count                      = var.fulltext_instance_count >= 2 ? 1 : 0
-  replication_group_id       = "${var.project}-${var.environment}-valkey-fulltext-rg"
-  description                = "${var.project}-${var.environment} Fulltext Valkey (Multi-AZ)"
+  replication_group_id       = "${local.name_prefix}-valkey-fulltext-rg"
+  description                = "${local.name_prefix} Fulltext Valkey (Multi-AZ)"
   engine                     = "valkey"
   engine_version             = var.valkey_fulltext_engine_version
   node_type                  = var.valkey_fulltext_node_type
@@ -62,6 +62,6 @@ resource "aws_elasticache_replication_group" "valkey_fulltext" {
   security_group_ids         = [aws_security_group.valkey_sg.id]
 
   tags = {
-    Name = "${var.project}-${var.environment}-valkey-fulltext"
+    Name = "${local.name_prefix}-valkey-fulltext"
   }
 }

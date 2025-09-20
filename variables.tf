@@ -39,6 +39,10 @@ variable "public_subnets" {
   description = "List of public subnet CIDRs (routed to IGW). Typically one per AZ (e.g., 2 items for 2 AZs). Used for NLB, NAT, Client VPN."
   type        = list(string)
   default     = ["10.0.0.0/24", "10.0.1.0/24"]
+  validation {
+    condition     = length(var.public_subnets) > 0
+    error_message = "public_subnets must contain at least one CIDR block."
+  }
 }
 
 # CIDR list for private subnets (EC2, RDS, Valkey, EFS; egress via NAT).
@@ -46,6 +50,10 @@ variable "private_subnets" {
   description = "List of private subnet CIDRs (no public IPs; egress via NAT). Hosts EC2, RDS, Valkey, EFS."
   type        = list(string)
   default     = ["10.0.10.0/24", "10.0.11.0/24"]
+  validation {
+    condition     = length(var.private_subnets) > 0
+    error_message = "private_subnets must contain at least one CIDR block."
+  }
 }
 
 # Optional list of AZs; if empty, the first 2 available will be used.

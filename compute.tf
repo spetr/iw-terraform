@@ -9,7 +9,7 @@ data "aws_ssm_parameter" "al2023_ami_arm64" {
 }
 
 resource "aws_iam_role" "ec2_ssm_role" {
-  name = "${var.project}-${var.environment}-ec2-ssm-role"
+  name = "${local.name_prefix}-ec2-ssm-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -28,7 +28,7 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
 }
 
 resource "aws_iam_instance_profile" "ec2" {
-  name = "${var.project}-${var.environment}-ec2-profile"
+  name = "${local.name_prefix}-ec2-profile"
   role = aws_iam_role.ec2_ssm_role.name
 }
 
@@ -62,7 +62,7 @@ resource "aws_instance" "app" {
               systemctl enable --now sshd || true
 
               # Set and preserve hostname to match the instance Name tag
-              HOSTNAME="${var.project}-${var.environment}-app-${count.index + 1}"
+              HOSTNAME="${local.name_prefix}-app-${count.index + 1}"
               hostnamectl set-hostname "$HOSTNAME"
               mkdir -p /etc/cloud/cloud.cfg.d
               printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
@@ -91,14 +91,14 @@ resource "aws_instance" "app" {
   }
 
   tags = {
-    Name = "${var.project}-${var.environment}-app-${count.index + 1}"
+    Name = "${local.name_prefix}-app-${count.index + 1}"
   }
 }
 
 # SSM-only Bastion (no public IP, no inbound SSH; access via SSM Session Manager)
 resource "aws_security_group" "bastion_sg" {
   count       = var.create_bastion ? 1 : 0
-  name        = "${var.project}-${var.environment}-bastion"
+  name        = "${local.name_prefix}-bastion"
   description = "Bastion SG (SSM-only, no inbound)"
   vpc_id      = aws_vpc.main.id
 
@@ -155,7 +155,7 @@ resource "aws_instance" "bastion" {
               usermod -s /bin/bash ssm-user || true
               systemctl enable --now set-ssm-user-shell.service || true
               # Set and preserve hostname to match the instance Name tag
-              HOSTNAME="${var.project}-${var.environment}-bastion"
+              HOSTNAME="${local.name_prefix}-bastion"
               hostnamectl set-hostname "$HOSTNAME"
               mkdir -p /etc/cloud/cloud.cfg.d
               printf "preserve_hostname: true\n" > /etc/cloud/cloud.cfg.d/99_hostname.cfg
@@ -171,7 +171,7 @@ resource "aws_instance" "bastion" {
   }
 
   tags = {
-    Name = "${var.project}-${var.environment}-bastion"
+    Name = "${local.name_prefix}-bastion"
   }
 }
 
@@ -206,14 +206,14 @@ resource "aws_instance" "fulltext" {
   }
 
   tags = {
-    Name = "${var.project}-${var.environment}-fulltext-${count.index + 1}"
+    Name = "${local.name_prefix}-fulltext-${count.index + 1}"
   }
 }
 
 # Security group for Zabbix Proxy (minimal: SSH optional, ICMP from VPC, egress all)
 resource "aws_security_group" "zabbix_sg" {
   count       = var.zabbix_proxy_enabled ? 1 : 0
-  name        = "${var.project}-${var.environment}-zabbix-proxy"
+  name        = "${local.name_prefix}-zabbix-proxy"
   description = "Zabbix Proxy SG"
   vpc_id      = aws_vpc.main.id
 
@@ -298,7 +298,7 @@ resource "aws_instance" "zabbix_proxy" {
               PROXY_CONF=/etc/zabbix/zabbix_proxy.conf
               sed -i "s/^#\?ProxyMode=.*/ProxyMode=0/" "$PROXY_CONF"
               sed -i "s/^#\?Server=.*/Server=${var.zabbix_server}/" "$PROXY_CONF"
-              sed -i "s/^#\?Hostname=.*/Hostname=${var.project}-${var.environment}-zabbix-proxy/" "$PROXY_CONF"
+              sed -i "s/^#\?Hostname=.*/Hostname=${local.name_prefix}-zabbix-proxy/" "$PROXY_CONF"
 
               # Ensure DB path exists (SQLite)
               install -o zabbix -g zabbix -m 0750 -d /var/lib/zabbix
@@ -318,7 +318,7 @@ resource "aws_instance" "zabbix_proxy" {
   }
 
   tags = {
-    Name = coalesce(var.zabbix_proxy_hostname, "${var.project}-${var.environment}-zabbix-proxy")
+    Name = coalesce(var.zabbix_proxy_hostname, "${local.name_prefix}-zabbix-proxy")
   }
 }
 
@@ -330,7 +330,7 @@ resource "aws_ebs_volume" "fulltext" {
   type              = "gp3"
 
   tags = {
-    Name = "${var.project}-${var.environment}-fulltext-data-${count.index + 1}"
+    Name = "${local.name_prefix}-fulltext-data-${count.index + 1}"
   }
 }
 

@@ -1,34 +1,19 @@
 locals {
-  # Mail-related TCP ports handled by the NLB (SMTP/IMAP/POP3 family)
-  mail_ports = [25, 465, 587, 143, 993, 110, 995] # smtp, smtps, submission, imap, imaps, pop3, pop3s
-
-  # TLS ports will always terminate on the NLB using ACM cert
-  mail_tls_ports = [465, 993, 995]
-
-  # Map TLS listener ports to the plaintext ports used by backend services
-  mail_tls_target_map = {
-    "465" = 25  # SMTPS → SMTP
-    "993" = 143 # IMAPS → IMAP
-    "995" = 110 # POP3S → POP3
-  }
-
-  # NLB listeners cover only mail ports now (no 443 passthrough needed as ALB always has HTTPS)
-  nlb_ports = local.mail_ports
-
-  # Partition NLB ports into TCP (non-TLS) and TLS
+  nlb_ports     = local.mail_ports
   nlb_tcp_ports = [for p in local.nlb_ports : p if !contains(local.mail_tls_ports, p)]
   nlb_tls_ports = [for p in local.nlb_ports : p if contains(local.mail_tls_ports, p)]
-
-  # Resolve per-listener backend port (TLS listeners downshift to plaintext targets)
   nlb_target_ports = {
     for port in local.nlb_ports :
-    tostring(port) => try(local.mail_tls_target_map[tostring(port)], port)
+    tostring(port) => lookup(local.mail_tls_target_map, tostring(port), port)
   }
+  alb_name              = substr(format("%s-alb", local.name_prefix), 0, 32)
+  alb_target_group_name = substr(format("%s-alb-tg", local.name_prefix), 0, 32)
+  nlb_name              = substr(format("%s-nlb-eip", local.name_prefix), 0, 32)
 }
 
 # Application Load Balancer for HTTP/HTTPS
 resource "aws_lb" "alb" {
-  name               = "${var.project}-${var.environment}-alb"
+  name               = local.alb_name
   internal           = true
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -39,23 +24,29 @@ resource "aws_lb" "alb" {
     for_each = var.enable_lb_access_logs && var.lb_logs_bucket != null ? [1] : []
     content {
       bucket  = var.lb_logs_bucket
-      prefix  = coalesce(var.lb_logs_prefix, "${var.project}/${var.environment}/alb")
+      prefix  = coalesce(var.lb_logs_prefix, format("%s/%s/alb", var.project, var.environment))
       enabled = true
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !var.enable_lb_access_logs || var.lb_logs_bucket != null
+      error_message = "lb_logs_bucket must be set when enable_lb_access_logs is true."
     }
   }
 }
 
 resource "aws_lb_target_group" "alb_tg" {
-  name     = "${var.project}-${var.environment}-alb-tg"
+  name     = local.alb_target_group_name
   port     = 80
   protocol = "HTTP"
   vpc_id   = aws_vpc.main.id
 
-  # Enable sticky sessions on ALB using LB cookie
   stickiness {
     type            = "lb_cookie"
     enabled         = true
-    cookie_duration = 86400 # 1 day
+    cookie_duration = 86400
   }
 
   health_check {
@@ -104,17 +95,15 @@ resource "aws_lb_target_group_attachment" "alb_ec2" {
   port             = 80
 }
 
-# Optionally associate an existing WAFv2 Web ACL to ALB
 resource "aws_wafv2_web_acl_association" "alb" {
   count        = var.waf_web_acl_arn == null ? 0 : 1
   resource_arn = aws_lb.alb.arn
   web_acl_arn  = var.waf_web_acl_arn
 }
 
-# Optionally create a basic WAF and associate with ALB when no external ARN is provided
 resource "aws_wafv2_web_acl" "basic" {
   count       = var.waf_web_acl_arn == null && var.enable_waf_basic ? 1 : 0
-  name        = "${var.project}-${var.environment}-waf-basic"
+  name        = format("%s-waf-basic", local.name_prefix)
   description = "Basic WAF REGIONAL with AWS managed rule groups"
   scope       = "REGIONAL"
 
@@ -192,18 +181,16 @@ resource "aws_wafv2_web_acl_association" "alb_basic" {
   web_acl_arn  = aws_wafv2_web_acl.basic[0].arn
 }
 
-# Network Load Balancer for TCP ports (mail protocols)
 resource "aws_eip" "nlb" {
-  # Allocate one EIP per public subnet to attach to the NLB (keep keys aligned with subnets)
   for_each = aws_subnet.public
   domain   = "vpc"
   tags = {
-    Name = "${var.project}-${var.environment}-nlb-eip-${each.key}"
+    Name = format("%s-nlb-eip-%s", local.name_prefix, each.key)
   }
 }
 
 resource "aws_lb" "nlb" {
-  name               = "${var.project}-${var.environment}-nlb-eip"
+  name               = local.nlb_name
   internal           = false
   load_balancer_type = "network"
   ip_address_type    = "dualstack"
@@ -212,31 +199,28 @@ resource "aws_lb" "nlb" {
     for_each = var.enable_lb_access_logs && var.lb_logs_bucket != null ? [1] : []
     content {
       bucket  = var.lb_logs_bucket
-      prefix  = coalesce(var.lb_logs_prefix, "${var.project}/${var.environment}/nlb")
+      prefix  = coalesce(var.lb_logs_prefix, format("%s/%s/nlb", var.project, var.environment))
       enabled = true
     }
   }
 
   dynamic "subnet_mapping" {
-    # Iterate over the actual public subnet map to ensure subnet_id is always set
     for_each = aws_subnet.public
     content {
       subnet_id     = subnet_mapping.value.id
       allocation_id = aws_eip.nlb[subnet_mapping.key].id
-      # Let AWS auto-assign IPv6; only pin IPv4 via EIP
     }
   }
 }
 
 resource "aws_lb_target_group" "nlb_tg" {
   for_each    = toset([for p in local.nlb_ports : tostring(p)])
-  name        = "${var.project}-${var.environment}-nlb-tg-${each.key}"
+  name        = substr(format("%s-nlb-tg-%s", local.name_prefix, each.key), 0, 32)
   port        = local.nlb_target_ports[each.key]
   protocol    = "TCP"
   vpc_id      = aws_vpc.main.id
   target_type = "instance"
 
-  # Enable stickiness on NLB by source IP
   stickiness {
     type    = "source_ip"
     enabled = true
@@ -269,9 +253,8 @@ resource "aws_lb_listener" "nlb_listener_tls" {
   }
 }
 
-# NLB → ALB forwarding for web ports (80/443) via TCP passthrough
 resource "aws_lb_target_group" "nlb_to_alb_80" {
-  name        = "${var.project}-${var.environment}-nlb-alb-80"
+  name        = substr(format("%s-nlb-alb-80", local.name_prefix), 0, 32)
   port        = 80
   protocol    = "TCP"
   vpc_id      = aws_vpc.main.id
@@ -282,9 +265,7 @@ resource "aws_lb_target_group_attachment" "nlb_to_alb_80" {
   target_group_arn = aws_lb_target_group.nlb_to_alb_80.arn
   target_id        = aws_lb.alb.arn
   port             = 80
-
-  # Ensure the ALB has a matching listener before registering it as a target
-  depends_on = [aws_lb_listener.http_redirect]
+  depends_on       = [aws_lb_listener.http_redirect]
 }
 
 resource "aws_lb_listener" "nlb_http_to_alb" {
@@ -299,7 +280,7 @@ resource "aws_lb_listener" "nlb_http_to_alb" {
 }
 
 resource "aws_lb_target_group" "nlb_to_alb_443" {
-  name        = "${var.project}-${var.environment}-nlb-alb-443"
+  name        = substr(format("%s-nlb-alb-443", local.name_prefix), 0, 32)
   port        = 443
   protocol    = "TCP"
   vpc_id      = aws_vpc.main.id
@@ -310,9 +291,7 @@ resource "aws_lb_target_group_attachment" "nlb_to_alb_443" {
   target_group_arn = aws_lb_target_group.nlb_to_alb_443.arn
   target_id        = aws_lb.alb.arn
   port             = 443
-
-  # Ensure the ALB has a matching listener before registering it as a target
-  depends_on = [aws_lb_listener.https]
+  depends_on       = [aws_lb_listener.https]
 }
 
 resource "aws_lb_listener" "nlb_https_to_alb" {
@@ -333,7 +312,7 @@ locals {
   nlb_pairs = flatten([
     for port in local.nlb_ports_str : [
       for idx in local.app_indexes : {
-        key   = "${port}-${idx}" // statický klíč známý při planu
+        key   = "${port}-${idx}"
         port  = port
         index = idx
       }

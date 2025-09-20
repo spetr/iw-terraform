@@ -1,6 +1,6 @@
 resource "aws_ec2_client_vpn_endpoint" "this" {
   count                  = var.enable_client_vpn ? 1 : 0
-  description            = "${var.project}-${var.environment} client vpn"
+  description            = "${local.name_prefix} client vpn"
   server_certificate_arn = var.client_vpn_certificate_arn
   client_cidr_block      = var.client_vpn_cidr
   vpc_id                 = aws_vpc.main.id
@@ -20,7 +20,18 @@ resource "aws_ec2_client_vpn_endpoint" "this" {
   security_group_ids = [aws_security_group.client_vpn_sg[0].id]
 
   tags = {
-    Name = "${var.project}-${var.environment}-client-vpn"
+    Name = "${local.name_prefix}-client-vpn"
+  }
+
+  lifecycle {
+    precondition {
+      condition     = !var.enable_client_vpn || var.client_vpn_certificate_arn != null
+      error_message = "client_vpn_certificate_arn must be set when enable_client_vpn is true."
+    }
+    precondition {
+      condition     = !var.enable_client_vpn || var.client_vpn_auth_saml_provider_arn != null || var.client_vpn_client_root_certificate_arn != null
+      error_message = "Provide client_vpn_client_root_certificate_arn unless using SAML authentication."
+    }
   }
 }
 
