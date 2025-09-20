@@ -181,6 +181,16 @@ resource "aws_security_group" "ec2_sg" {
     }
   }
 
+  dynamic "ingress" {
+    for_each = var.zabbix_proxy_enabled ? { zabbix = aws_security_group.zabbix_sg[0].id } : {}
+    content {
+      from_port       = 0
+      to_port         = 0
+      protocol        = "-1"
+      security_groups = [ingress.value]
+    }
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
