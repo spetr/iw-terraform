@@ -4,7 +4,7 @@ locals {
   nlb_tls_ports = [for p in local.nlb_ports : p if contains(local.mail_tls_ports, p)]
   nlb_target_ports = {
     for port in local.nlb_ports :
-    tostring(port) => lookup(local.mail_tls_target_map, tostring(port), port)
+    tostring(port) => tonumber(lookup(local.mail_tls_target_map, tostring(port), port))
   }
   alb_name              = substr(format("%s-alb", local.name_prefix), 0, 32)
   alb_target_group_name = substr(format("%s-alb-tg", local.name_prefix), 0, 32)
@@ -215,7 +215,7 @@ resource "aws_lb" "nlb" {
 
 resource "aws_lb_target_group" "nlb_tg" {
   for_each    = toset([for p in local.nlb_ports : tostring(p)])
-  name        = substr(format("%s-nlb-tg-%s", local.name_prefix, each.key), 0, 32)
+  name_prefix = local.nlb_tg_prefix
   port        = local.nlb_target_ports[each.key]
   protocol    = "TCP"
   vpc_id      = aws_vpc.main.id
@@ -224,6 +224,10 @@ resource "aws_lb_target_group" "nlb_tg" {
   stickiness {
     type    = "source_ip"
     enabled = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
